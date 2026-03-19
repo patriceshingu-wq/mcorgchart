@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(ls -la /c/Projects/OrgChart/*.config.* /c/Projects/OrgChart/tsconfig.*)",
+      "Bash(npm install:*)"
+    ]
+  }
+}

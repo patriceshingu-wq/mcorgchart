@@ -14,6 +14,7 @@ interface OrgChartCanvasProps {
   rootNodes: OrgNode[];
   matchingIds: Set<string>;
   hasActiveFilter: boolean;
+  embeddedDeptIds: Set<string>;
   zoomLevel: ZoomLevel;
   onZoomChange: (z: ZoomLevel) => void;
   selectedId: string | null;
@@ -36,6 +37,7 @@ export function OrgChartCanvas({
   rootNodes,
   matchingIds,
   hasActiveFilter,
+  embeddedDeptIds,
   zoomLevel,
   onZoomChange,
   selectedId,
@@ -56,7 +58,10 @@ export function OrgChartCanvas({
   const panStart = useRef<{ mouseX: number; mouseY: number; panX: number; panY: number } | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
-  const positions = useMemo(() => computeLayout(visibleNodes, rootNodes), [visibleNodes, rootNodes]);
+  const positions = useMemo(
+    () => computeLayout(visibleNodes, rootNodes, embeddedDeptIds),
+    [visibleNodes, rootNodes, embeddedDeptIds],
+  );
 
   const canvasWidth = useMemo(() => {
     let maxX = 400;
@@ -72,7 +77,6 @@ export function OrgChartCanvas({
 
   const handleMouseDown = useCallback((e: React.MouseEvent) => {
     const target = e.target as HTMLElement;
-    // Only pan on the background (not on node cards or buttons)
     if (target.closest('[data-node]') || target.closest('button') || target.closest('[data-radix-popper-content-wrapper]')) return;
     e.preventDefault();
     setIsPanning(true);
@@ -214,36 +218,63 @@ export function OrgChartCanvas({
           >
             <OrgChartConnectors
               nodes={visibleNodes}
+              allNodes={nodes}
               positions={positions}
+              embeddedDeptIds={embeddedDeptIds}
               canvasWidth={canvasWidth}
               canvasHeight={canvasHeight}
             />
-            {visibleNodes.map(node => {
-              const pos = positions.get(node.id);
-              if (!pos) return null;
-              const directChildCount = nodes.filter(n => n.parentId === node.id).length;
-              const hasChildren = directChildCount > 0;
-              return (
-                <div key={node.id} data-node={node.id}>
-                  <OrgChartNode
-                    node={node}
-                    position={pos}
-                    isSelected={selectedId === node.id}
-                    isMatching={matchingIds.has(node.id)}
-                    hasActiveFilter={hasActiveFilter}
-                    hasChildren={hasChildren}
-                    childCount={directChildCount}
-                    onSelect={onSelectNode}
-                    onAddChild={onAddChild}
-                    onEdit={onEdit}
-                    onReassign={onReassign}
-                    onDelete={onDelete}
-                    onToggleCollapse={onToggleCollapse}
-                    t={t}
-                  />
-                </div>
-              );
-            })}
+            {visibleNodes
+              .filter(node => !embeddedDeptIds.has(node.id))
+              .map(node => {
+                const pos = positions.get(node.id);
+                if (!pos) return null;
+
+                // Embedded departments for ministry cards
+                const embeddedDepts = node.category === 'ministry-system'
+                  ? nodes
+                      .filter(n => n.parentId === node.id && embeddedDeptIds.has(n.id))
+                      .sort((a, b) => a.order - b.order)
+                  : [];
+
+                // Embedded executives for executive-leadership and senior-leadership cards
+                const embeddedExecs = (node.category === 'executive-leadership' || node.category === 'senior-leadership')
+                  ? nodes
+                      .filter(n => n.parentId === node.id && embeddedDeptIds.has(n.id))
+                      .sort((a, b) => a.order - b.order)
+                  : [];
+
+                // Effective visual children: non-dept direct children + hoisted programs
+                const ownChildren = nodes.filter(n => n.parentId === node.id && !embeddedDeptIds.has(n.id));
+                const hoistedPrograms = embeddedDepts.length > 0
+                  ? nodes.filter(n => embeddedDepts.some(d => d.id === n.parentId))
+                  : [];
+                const directChildCount = ownChildren.length + hoistedPrograms.length;
+                const hasChildren = directChildCount > 0;
+
+                return (
+                  <div key={node.id} data-node={node.id}>
+                    <OrgChartNode
+                      node={node}
+                      position={pos}
+                      embeddedDepts={embeddedDepts}
+                      embeddedExecs={embeddedExecs}
+                      isSelected={selectedId === node.id}
+                      isMatching={matchingIds.has(node.id)}
+                      hasActiveFilter={hasActiveFilter}
+                      hasChildren={hasChildren}
+                      childCount={directChildCount}
+                      onSelect={onSelectNode}
+                      onAddChild={onAddChild}
+                      onEdit={onEdit}
+                      onReassign={onReassign}
+                      onDelete={onDelete}
+                      onToggleCollapse={onToggleCollapse}
+                      t={t}
+                    />
+                  </div>
+                );
+              })}
           </div>
         )}
       </div>

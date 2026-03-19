@@ -3,7 +3,7 @@ import type { OrgNode, NodeCategory } from '../types';
 import { SEED_NODES } from '../data/seedData';
 import { generateId, getDescendantIds } from '../lib/utils';
 
-const NODES_KEY = 'mont-carmel-orgchart-v1';
+const NODES_KEY = 'mont-carmel-orgchart-v2';
 const OLD_KEY = 'mont-carmel-org-chart-builder';
 
 function migrateOldData(oldData: unknown): OrgNode[] | null {

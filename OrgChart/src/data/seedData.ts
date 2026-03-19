@@ -3,6 +3,8 @@ import type { OrgNode, AppSettings } from '../types';
 // IDs
 const ID = {
   seniorPastors: 'sp-001',
+  seniorPastor1: 'sp-002',
+  seniorPastor2: 'sp-003',
   residentPastor: 'rp-001',
   executiveTeam: 'et-001',
   execFrench: 'ef-001',
@@ -51,13 +53,37 @@ export const SEED_NODES: OrgNode[] = [
   {
     id: ID.seniorPastors,
     title: 'Senior Pastors',
-    personName: 'Rev. S. Y. Freddy Shembo & Rev. Beatrice Shembo',
+    personName: '',
     description: 'Lead the overall vision, spiritual direction, and mission of Mont Carmel Church',
     category: 'senior-leadership',
     language: 'both',
     status: 'active',
     parentId: null,
     order: 0,
+    isCollapsed: false,
+  },
+  {
+    id: ID.seniorPastor1,
+    title: 'Senior Pastor',
+    personName: 'Rev. S. Y. Freddy Shembo',
+    description: '',
+    category: 'senior-leadership',
+    language: 'both',
+    status: 'active',
+    parentId: ID.seniorPastors,
+    order: 0,
+    isCollapsed: false,
+  },
+  {
+    id: ID.seniorPastor2,
+    title: 'Senior Pastor',
+    personName: 'Rev. Beatrice Shembo',
+    description: '',
+    category: 'senior-leadership',
+    language: 'both',
+    status: 'active',
+    parentId: ID.seniorPastors,
+    order: 1,
     isCollapsed: false,
   },
 
@@ -128,9 +154,9 @@ export const SEED_NODES: OrgNode[] = [
   },
   {
     id: ID.weekendExp,
-    title: 'Weekend Experience Ministry',
+    title: 'Worship Experience',
     personName: '',
-    description: 'Coordinates all elements of the weekend worship service experience for both language congregations',
+    description: 'Coordinates all elements of the weekend worship service and special services experience for both language congregations',
     category: 'ministry-system',
     language: 'both',
     status: 'vacant',
@@ -140,7 +166,7 @@ export const SEED_NODES: OrgNode[] = [
   },
   {
     id: ID.assimilation,
-    title: 'Assimilation (Connection)',
+    title: 'Connections Ministry',
     personName: '',
     description: 'Helps first-time visitors and new members connect and integrate into the life of the church',
     category: 'ministry-system',
@@ -164,7 +190,7 @@ export const SEED_NODES: OrgNode[] = [
   },
   {
     id: ID.nextGen,
-    title: 'Next Generation Ministry',
+    title: 'Next Gen Ministry',
     personName: '',
     description: 'Ministers to the next generation — children, students, and young adults — in both languages',
     category: 'ministry-system',
@@ -214,7 +240,7 @@ export const SEED_NODES: OrgNode[] = [
   // Church-Wide children
   {
     id: ID.oneWeek,
-    title: '1 Week at the Feet of Jesus',
+    title: '1SPJ Programs',
     personName: '',
     description: 'An annual week of focused prayer, fasting, and worship held at the feet of Christ',
     category: 'program',
@@ -226,7 +252,7 @@ export const SEED_NODES: OrgNode[] = [
   },
   {
     id: ID.twentyOneDays,
-    title: '21 Days Prayer Program',
+    title: '21 Days Program',
     personName: '',
     description: 'A church-wide 21-day fasting and prayer initiative that launches the new year',
     category: 'program',
@@ -237,7 +263,7 @@ export const SEED_NODES: OrgNode[] = [
     isCollapsed: false,
   },
 
-  // Weekend Experience children
+  // Worship Experience children
   {
     id: ID.worshipTeams,
     title: 'Worship Teams',
@@ -252,7 +278,7 @@ export const SEED_NODES: OrgNode[] = [
   },
   {
     id: ID.mcMusic,
-    title: 'MC Music',
+    title: 'Communication Team',
     personName: '',
     description: "Produces and develops original music for Mont Carmel's worship culture",
     category: 'department',
@@ -264,7 +290,7 @@ export const SEED_NODES: OrgNode[] = [
   },
   {
     id: ID.production,
-    title: 'French / English Production',
+    title: 'Production Teams',
     personName: '',
     description: 'Manages audio, video, and lighting for all French and English services',
     category: 'department',
@@ -275,7 +301,7 @@ export const SEED_NODES: OrgNode[] = [
     isCollapsed: false,
   },
 
-  // Assimilation children
+  // Connections children
   {
     id: ID.guestServices,
     title: 'Guest Services',

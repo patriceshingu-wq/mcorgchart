@@ -40,7 +40,7 @@ function AppContent() {
   const [reassignModal, setReassignModal] = useState<{ open: boolean; node: OrgNode | null }>({ open: false, node: null });
   const [deleteDialog, setDeleteDialog] = useState<{ open: boolean; node: OrgNode | null }>({ open: false, node: null });
 
-  const { visibleNodes, rootNodes, matchingIds, hasActiveFilter } = useOrgTree(nodes, filters);
+  const { visibleNodes, rootNodes, matchingIds, hasActiveFilter, embeddedDeptIds } = useOrgTree(nodes, filters);
   const selectedNode = nodes.find(n => n.id === selectedId) ?? null;
 
   // Handlers
@@ -139,6 +139,7 @@ function AppContent() {
                     rootNodes={rootNodes}
                     matchingIds={matchingIds}
                     hasActiveFilter={hasActiveFilter}
+                    embeddedDeptIds={embeddedDeptIds}
                     zoomLevel={zoomLevel}
                     onZoomChange={setZoomLevel}
                     selectedId={selectedId}

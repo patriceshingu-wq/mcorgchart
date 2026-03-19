@@ -74,12 +74,12 @@ export function Sidebar({ nodes, filters, onFiltersChange, onAddNode, isCollapse
       <div className="flex flex-col gap-2">
         <label className="text-xs font-medium text-slate-600">{t.category}</label>
         <Select
-          value={filters.category}
-          onValueChange={v => onFiltersChange({ ...filters, category: v as FilterState['category'] })}
+          value={filters.category || '__all__'}
+          onValueChange={v => onFiltersChange({ ...filters, category: (v === '__all__' ? '' : v) as FilterState['category'] })}
           placeholder={t.allCategories}
           className="text-xs h-8"
         >
-          <SelectItem value="">{t.allCategories}</SelectItem>
+          <SelectItem value="__all__">{t.allCategories}</SelectItem>
           <SelectItem value="senior-leadership">{t.seniorLeadership}</SelectItem>
           <SelectItem value="executive-leadership">{t.executiveLeadership}</SelectItem>
           <SelectItem value="ministry-system">{t.ministrySystem}</SelectItem>
@@ -89,12 +89,12 @@ export function Sidebar({ nodes, filters, onFiltersChange, onAddNode, isCollapse
 
         <label className="text-xs font-medium text-slate-600">{t.language}</label>
         <Select
-          value={filters.language}
-          onValueChange={v => onFiltersChange({ ...filters, language: v as FilterState['language'] })}
+          value={filters.language || '__all__'}
+          onValueChange={v => onFiltersChange({ ...filters, language: (v === '__all__' ? '' : v) as FilterState['language'] })}
           placeholder={t.allLanguages}
           className="text-xs h-8"
         >
-          <SelectItem value="">{t.allLanguages}</SelectItem>
+          <SelectItem value="__all__">{t.allLanguages}</SelectItem>
           <SelectItem value="english">{t.english}</SelectItem>
           <SelectItem value="french">{t.french}</SelectItem>
           <SelectItem value="both">{t.both}</SelectItem>
@@ -102,12 +102,12 @@ export function Sidebar({ nodes, filters, onFiltersChange, onAddNode, isCollapse
 
         <label className="text-xs font-medium text-slate-600">{t.status}</label>
         <Select
-          value={filters.status}
-          onValueChange={v => onFiltersChange({ ...filters, status: v as FilterState['status'] })}
+          value={filters.status || '__all__'}
+          onValueChange={v => onFiltersChange({ ...filters, status: (v === '__all__' ? '' : v) as FilterState['status'] })}
           placeholder={t.allStatuses}
           className="text-xs h-8"
         >
-          <SelectItem value="">{t.allStatuses}</SelectItem>
+          <SelectItem value="__all__">{t.allStatuses}</SelectItem>
           <SelectItem value="active">{t.active}</SelectItem>
           <SelectItem value="vacant">{t.vacant}</SelectItem>
           <SelectItem value="inactive">{t.inactive}</SelectItem>
