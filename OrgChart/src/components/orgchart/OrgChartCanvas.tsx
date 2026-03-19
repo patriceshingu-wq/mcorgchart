@@ -1,0 +1,252 @@
+import React, { useMemo, useRef, useState, useCallback } from 'react';
+import { ZoomIn, ZoomOut, Maximize2, ChevronDown, ChevronUp, List, BarChart2 } from 'lucide-react';
+import { OrgChartNode } from './OrgChartNode';
+import { OrgChartConnectors } from './OrgChartConnectors';
+import { computeLayout, NODE_WIDTH, NODE_HEIGHT, H_GAP, V_GAP } from '../../hooks/useOrgTree';
+import type { OrgNode, ZoomLevel } from '../../types';
+import { ZOOM_LEVELS } from '../../types';
+import { cn } from '../../lib/utils';
+import type { TranslationKeys } from '../../data/translations';
+
+interface OrgChartCanvasProps {
+  nodes: OrgNode[];
+  visibleNodes: OrgNode[];
+  rootNodes: OrgNode[];
+  matchingIds: Set<string>;
+  hasActiveFilter: boolean;
+  zoomLevel: ZoomLevel;
+  onZoomChange: (z: ZoomLevel) => void;
+  selectedId: string | null;
+  onSelectNode: (id: string) => void;
+  onAddChild: (parentId: string) => void;
+  onEdit: (node: OrgNode) => void;
+  onReassign: (node: OrgNode) => void;
+  onDelete: (node: OrgNode) => void;
+  onToggleCollapse: (id: string) => void;
+  onCollapseAll: () => void;
+  onExpandAll: () => void;
+  chartView: 'visual' | 'list';
+  onChartViewChange: (v: 'visual' | 'list') => void;
+  t: TranslationKeys;
+}
+
+export function OrgChartCanvas({
+  nodes,
+  visibleNodes,
+  rootNodes,
+  matchingIds,
+  hasActiveFilter,
+  zoomLevel,
+  onZoomChange,
+  selectedId,
+  onSelectNode,
+  onAddChild,
+  onEdit,
+  onReassign,
+  onDelete,
+  onToggleCollapse,
+  onCollapseAll,
+  onExpandAll,
+  chartView,
+  onChartViewChange,
+  t,
+}: OrgChartCanvasProps) {
+  const [pan, setPan] = useState({ x: 40, y: 40 });
+  const [isPanning, setIsPanning] = useState(false);
+  const panStart = useRef<{ mouseX: number; mouseY: number; panX: number; panY: number } | null>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  const positions = useMemo(() => computeLayout(visibleNodes, rootNodes), [visibleNodes, rootNodes]);
+
+  const canvasWidth = useMemo(() => {
+    let maxX = 400;
+    for (const pos of positions.values()) maxX = Math.max(maxX, pos.x + NODE_WIDTH + H_GAP);
+    return maxX;
+  }, [positions]);
+
+  const canvasHeight = useMemo(() => {
+    let maxY = 200;
+    for (const pos of positions.values()) maxY = Math.max(maxY, pos.y + NODE_HEIGHT + V_GAP);
+    return maxY;
+  }, [positions]);
+
+  const handleMouseDown = useCallback((e: React.MouseEvent) => {
+    const target = e.target as HTMLElement;
+    // Only pan on the background (not on node cards or buttons)
+    if (target.closest('[data-node]') || target.closest('button') || target.closest('[data-radix-popper-content-wrapper]')) return;
+    e.preventDefault();
+    setIsPanning(true);
+    panStart.current = { mouseX: e.clientX, mouseY: e.clientY, panX: pan.x, panY: pan.y };
+  }, [pan]);
+
+  const handleMouseMove = useCallback((e: React.MouseEvent) => {
+    if (!isPanning || !panStart.current) return;
+    const dx = e.clientX - panStart.current.mouseX;
+    const dy = e.clientY - panStart.current.mouseY;
+    setPan({ x: panStart.current.panX + dx, y: panStart.current.panY + dy });
+  }, [isPanning]);
+
+  const handleMouseUp = useCallback(() => {
+    setIsPanning(false);
+    panStart.current = null;
+  }, []);
+
+  const zoomIdx = ZOOM_LEVELS.indexOf(zoomLevel);
+  const canZoomIn = zoomIdx < ZOOM_LEVELS.length - 1;
+  const canZoomOut = zoomIdx > 0;
+
+  const isEmpty = visibleNodes.length === 0;
+
+  return (
+    <div className="flex flex-col h-full">
+      {/* Toolbar */}
+      <div className="flex items-center gap-2 px-4 py-2 border-b border-slate-100 flex-shrink-0 no-print">
+        {/* View toggle */}
+        <div className="flex items-center border border-slate-200 rounded-lg overflow-hidden">
+          <button
+            onClick={() => onChartViewChange('visual')}
+            className={cn(
+              'flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium transition-colors',
+              chartView === 'visual' ? 'bg-slate-900 text-white' : 'text-slate-500 hover:bg-slate-50',
+            )}
+          >
+            <BarChart2 className="h-3 w-3" />
+            {t.chartView}
+          </button>
+          <button
+            onClick={() => onChartViewChange('list')}
+            className={cn(
+              'flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium transition-colors',
+              chartView === 'list' ? 'bg-slate-900 text-white' : 'text-slate-500 hover:bg-slate-50',
+            )}
+          >
+            <List className="h-3 w-3" />
+            {t.listView}
+          </button>
+        </div>
+
+        <div className="h-4 w-px bg-slate-200" />
+
+        {/* Zoom controls (only visual) */}
+        {chartView === 'visual' && (
+          <>
+            <button
+              onClick={() => canZoomOut && onZoomChange(ZOOM_LEVELS[zoomIdx - 1])}
+              disabled={!canZoomOut}
+              className="p-1.5 rounded-lg text-slate-500 hover:text-slate-900 hover:bg-slate-100 disabled:opacity-40 disabled:pointer-events-none transition-colors"
+              title={t.zoomOut}
+            >
+              <ZoomOut className="h-3.5 w-3.5" />
+            </button>
+            <span className="text-xs font-medium text-slate-600 w-10 text-center tabular-nums">{zoomLevel}%</span>
+            <button
+              onClick={() => canZoomIn && onZoomChange(ZOOM_LEVELS[zoomIdx + 1])}
+              disabled={!canZoomIn}
+              className="p-1.5 rounded-lg text-slate-500 hover:text-slate-900 hover:bg-slate-100 disabled:opacity-40 disabled:pointer-events-none transition-colors"
+              title={t.zoomIn}
+            >
+              <ZoomIn className="h-3.5 w-3.5" />
+            </button>
+
+            <div className="h-4 w-px bg-slate-200" />
+
+            <button
+              onClick={onCollapseAll}
+              className="flex items-center gap-1 px-2 py-1.5 text-xs text-slate-500 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition-colors"
+              title={t.collapse}
+            >
+              <ChevronUp className="h-3 w-3" />
+              {t.collapse}
+            </button>
+            <button
+              onClick={onExpandAll}
+              className="flex items-center gap-1 px-2 py-1.5 text-xs text-slate-500 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition-colors"
+              title={t.expand}
+            >
+              <ChevronDown className="h-3 w-3" />
+              {t.expand}
+            </button>
+          </>
+        )}
+
+        <button
+          onClick={() => setPan({ x: 40, y: 40 })}
+          className="ml-auto p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors"
+          title="Reset view"
+        >
+          <Maximize2 className="h-3.5 w-3.5" />
+        </button>
+      </div>
+
+      {/* Canvas */}
+      <div
+        ref={containerRef}
+        className={cn(
+          'flex-1 overflow-auto relative select-none',
+          isPanning ? 'cursor-grabbing' : 'cursor-grab',
+        )}
+        onMouseDown={handleMouseDown}
+        onMouseMove={handleMouseMove}
+        onMouseUp={handleMouseUp}
+        onMouseLeave={handleMouseUp}
+      >
+        {isEmpty ? (
+          <div className="flex flex-col items-center justify-center h-full gap-4 text-slate-400">
+            <svg viewBox="0 0 120 80" className="w-32 h-24 opacity-30" fill="none" stroke="currentColor" strokeWidth="2">
+              <rect x="45" y="5" width="30" height="18" rx="3" />
+              <line x1="60" y1="23" x2="60" y2="33" />
+              <rect x="10" y="33" width="30" height="18" rx="3" />
+              <rect x="80" y="33" width="30" height="18" rx="3" />
+              <line x1="60" y1="33" x2="25" y2="33" />
+              <line x1="60" y1="33" x2="95" y2="33" />
+            </svg>
+            <p className="text-sm">{hasActiveFilter ? t.noResults : t.emptyChart}</p>
+          </div>
+        ) : (
+          <div
+            style={{
+              transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoomLevel / 100})`,
+              transformOrigin: '0 0',
+              position: 'relative',
+              width: canvasWidth,
+              height: canvasHeight,
+            }}
+          >
+            <OrgChartConnectors
+              nodes={visibleNodes}
+              positions={positions}
+              canvasWidth={canvasWidth}
+              canvasHeight={canvasHeight}
+            />
+            {visibleNodes.map(node => {
+              const pos = positions.get(node.id);
+              if (!pos) return null;
+              const directChildCount = nodes.filter(n => n.parentId === node.id).length;
+              const hasChildren = directChildCount > 0;
+              return (
+                <div key={node.id} data-node={node.id}>
+                  <OrgChartNode
+                    node={node}
+                    position={pos}
+                    isSelected={selectedId === node.id}
+                    isMatching={matchingIds.has(node.id)}
+                    hasActiveFilter={hasActiveFilter}
+                    hasChildren={hasChildren}
+                    childCount={directChildCount}
+                    onSelect={onSelectNode}
+                    onAddChild={onAddChild}
+                    onEdit={onEdit}
+                    onReassign={onReassign}
+                    onDelete={onDelete}
+                    onToggleCollapse={onToggleCollapse}
+                    t={t}
+                  />
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
