@@ -33,6 +33,7 @@ interface OrgChartNodeProps {
   node: OrgNode;
   position: NodePosition;
   embeddedDepts: OrgNode[];
+  embeddedPrograms: OrgNode[];
   embeddedExecs: OrgNode[];
   isSelected: boolean;
   isMatching: boolean;
@@ -52,6 +53,7 @@ export function OrgChartNode({
   node,
   position,
   embeddedDepts,
+  embeddedPrograms,
   embeddedExecs,
   isSelected,
   isMatching,
@@ -155,11 +157,12 @@ export function OrgChartNode({
             </DropdownMenuRoot>
           </div>
 
-          {/* Embedded list — departments for ministries, executives for exec teams */}
+          {/* Embedded list — departments and programs for ministries, executives for exec teams */}
           {isMinistry ? (
             <div className="bg-black/25 rounded-b-xl overflow-hidden">
               <EmbeddedDeptList
                 depts={embeddedDepts}
+                programs={embeddedPrograms}
                 accentColor={activePalette?.accent}
                 onEdit={onEdit}
                 onSelect={onSelect}
