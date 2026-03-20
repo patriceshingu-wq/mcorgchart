@@ -20,7 +20,7 @@ interface ExportPageProps {
 
 // ── CSV helpers ────────────────────────────────────────────────────────────────
 
-const CSV_HEADERS = ['id', 'title', 'personName', 'description', 'category', 'language', 'status', 'parentId', 'order', 'isCollapsed'] as const;
+const CSV_HEADERS = ['id', 'title', 'personTitle', 'personName', 'description', 'category', 'language', 'status', 'parentId', 'order', 'isCollapsed', 'colorIndex'] as const;
 
 function csvEscape(value: string): string {
   // Wrap in quotes if value contains comma, quote, or newline
@@ -36,6 +36,7 @@ function nodesToCsv(nodes: OrgNode[]): string {
     const row = [
       csvEscape(node.id),
       csvEscape(node.title),
+      csvEscape(node.personTitle ?? ''),
       csvEscape(node.personName),
       csvEscape(node.description),
       csvEscape(node.category),
@@ -44,6 +45,7 @@ function nodesToCsv(nodes: OrgNode[]): string {
       csvEscape(node.parentId ?? ''),
       String(node.order),
       String(node.isCollapsed ?? false),
+      node.colorIndex != null ? String(node.colorIndex) : '',
     ];
     rows.push(row.join(','));
   }
@@ -106,8 +108,10 @@ function csvToNodes(csv: string): OrgNode[] {
   const statusIdx = idx('status');
   const parentIdIdx = idx('parentId');
   const orderIdx = idx('order');
-  // isCollapsed is optional for backwards compatibility
+  // Optional fields for backwards compatibility
+  const personTitleIdx = headers.indexOf('personTitle');
   const isCollapsedIdx = headers.indexOf('isCollapsed');
+  const colorIndexIdx = headers.indexOf('colorIndex');
 
   const validCategories = new Set(['senior-leadership', 'executive-leadership', 'ministry-system', 'department', 'program']);
   const validLanguages = new Set(['english', 'french', 'both']);
@@ -132,9 +136,14 @@ function csvToNodes(csv: string): OrgNode[] {
     const isCollapsedRaw = isCollapsedIdx >= 0 ? f[isCollapsedIdx]?.trim().toLowerCase() : '';
     const isCollapsed = isCollapsedRaw === 'true' || isCollapsedRaw === '1';
 
+    // Parse colorIndex (optional)
+    const colorIndexRaw = colorIndexIdx >= 0 ? f[colorIndexIdx]?.trim() : '';
+    const colorIndex = colorIndexRaw !== '' ? parseInt(colorIndexRaw, 10) : undefined;
+
     return {
       id,
       title,
+      personTitle: personTitleIdx >= 0 ? (f[personTitleIdx]?.trim() ?? '') : '',
       personName: f[personNameIdx]?.trim() ?? '',
       description: f[descIdx]?.trim() ?? '',
       category: category as OrgNode['category'],
@@ -143,6 +152,7 @@ function csvToNodes(csv: string): OrgNode[] {
       parentId: parentIdRaw === '' ? null : parentIdRaw,
       order: parseInt(f[orderIdx]?.trim() ?? '0', 10) || 0,
       isCollapsed,
+      colorIndex: !isNaN(colorIndex as number) ? colorIndex : undefined,
     };
   });
 }

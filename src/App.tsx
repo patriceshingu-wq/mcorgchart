@@ -1,4 +1,5 @@
 import React, { useState, useCallback, useEffect } from 'react';
+import { ErrorBoundary } from './components/ErrorBoundary';
 import { TopBar } from './components/layout/TopBar';
 import { Sidebar } from './components/layout/Sidebar';
 import { OrgChartCanvas } from './components/orgchart/OrgChartCanvas';
@@ -23,7 +24,7 @@ const DEFAULT_FILTERS: FilterState = { search: '', category: '', language: '', s
 function AppContent() {
   const { settings, updateSettings, isLoading: settingsLoading } = useSettings();
   const {
-    nodes, isLoading: nodesLoading, storageMode, addNode, updateNode, deleteNode, reassignParent,
+    nodes, isLoading: nodesLoading, loadError, storageMode, addNode, updateNode, deleteNode, reassignParent,
     toggleCollapse, collapseAll, expandAll, importNodes, resetToSeed,
     undo, redo, canUndo, canRedo,
   } = useNodes();
@@ -258,6 +259,29 @@ function AppContent() {
     );
   }
 
+  if (loadError) {
+    return (
+      <div className="flex items-center justify-center h-screen bg-slate-50">
+        <div className="max-w-md mx-auto p-6 bg-white rounded-xl shadow-lg text-center">
+          <div className="w-12 h-12 mx-auto mb-4 rounded-full bg-amber-100 flex items-center justify-center">
+            <svg className="w-6 h-6 text-amber-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+            </svg>
+          </div>
+          <h1 className="text-xl font-semibold text-slate-900 mb-2">Failed to load data</h1>
+          <p className="text-sm text-slate-500 mb-2">{loadError}</p>
+          <p className="text-xs text-slate-400 mb-4">Using local seed data as fallback.</p>
+          <button
+            onClick={() => window.location.reload()}
+            className="px-4 py-2 text-sm font-medium text-white bg-slate-900 rounded-lg hover:bg-slate-800 transition-colors"
+          >
+            Retry
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="flex flex-col h-screen bg-slate-50 overflow-hidden">
       <TopBar
@@ -416,8 +440,10 @@ function AppContent() {
 
 export default function App() {
   return (
-    <ToastProvider>
-      <AppContent />
-    </ToastProvider>
+    <ErrorBoundary>
+      <ToastProvider>
+        <AppContent />
+      </ToastProvider>
+    </ErrorBoundary>
   );
 }

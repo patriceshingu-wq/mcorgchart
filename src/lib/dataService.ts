@@ -93,16 +93,30 @@ export async function saveNodes(nodes: OrgNode[]): Promise<void> {
         throw upsertError;
       }
 
-      // Delete nodes that no longer exist
+      // Delete nodes that no longer exist (using parameterized query)
       const currentIds = nodes.map(n => n.id);
-      const { error: deleteError } = await supabase
-        .from('org_nodes')
-        .delete()
-        .not('id', 'in', `(${currentIds.join(',')})`);
+      if (currentIds.length > 0) {
+        // Fetch all existing IDs from DB
+        const { data: existingNodes } = await supabase
+          .from('org_nodes')
+          .select('id');
 
-      if (deleteError) {
-        console.error('Error deleting removed nodes:', deleteError);
-        // Don't throw - deletion of old nodes is not critical
+        if (existingNodes) {
+          const idsToDelete = existingNodes
+            .map(n => n.id as string)
+            .filter(id => !currentIds.includes(id));
+
+          if (idsToDelete.length > 0) {
+            const { error: deleteError } = await supabase
+              .from('org_nodes')
+              .delete()
+              .in('id', idsToDelete);
+
+            if (deleteError) {
+              console.error('Error deleting removed nodes:', deleteError);
+            }
+          }
+        }
       }
     }
     return;

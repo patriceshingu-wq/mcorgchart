@@ -6,7 +6,10 @@ import App from './App';
 const container = document.getElementById('root');
 
 if (!container) {
-  document.body.innerHTML = '<h1 style="color: red; padding: 20px;">ERROR: Root element not found!</h1>';
+  const errorDiv = document.createElement('h1');
+  errorDiv.style.cssText = 'color: red; padding: 20px;';
+  errorDiv.textContent = 'ERROR: Root element not found!';
+  document.body.appendChild(errorDiv);
   throw new Error('Root element not found');
 }
 

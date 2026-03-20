@@ -16,6 +16,7 @@ const DEBOUNCE_MS = 500;
 export function useNodes() {
   const [nodes, setNodes] = useState<OrgNode[]>(SEED_NODES);
   const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [storageMode, setStorageMode] = useState<'supabase' | 'local'>('local');
 
   // Undo/redo history
@@ -30,11 +31,13 @@ export function useNodes() {
     async function load() {
       try {
         setStorageMode(getStorageMode());
+        setLoadError(null);
         const loaded = await loadNodesFromService();
         setNodes(loaded);
         initialLoadDone.current = true;
       } catch (error) {
         console.error('Error loading nodes:', error);
+        setLoadError(error instanceof Error ? error.message : 'Failed to load data');
         setNodes(SEED_NODES);
         initialLoadDone.current = true;
       } finally {
@@ -166,6 +169,7 @@ export function useNodes() {
   return {
     nodes,
     isLoading,
+    loadError,
     storageMode,
     addNode,
     updateNode,
