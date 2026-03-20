@@ -3,6 +3,7 @@ import type { OrgNode, NodePosition, FilterState } from '../types';
 
 // Shared layout constants (screen)
 export const NODE_WIDTH = 220;
+export const WIDE_NODE_WIDTH = 280; // Wider cards for senior/executive leadership
 export const NODE_HEIGHT = 110;
 export const H_GAP = 28;
 export const V_GAP = 56;
@@ -15,6 +16,7 @@ const RESIDENT_PASTOR_ID = 'rp-001';
 
 // Print layout constants (scaled down to fit on page)
 export const PRINT_NODE_WIDTH = 200;
+export const PRINT_WIDE_NODE_WIDTH = 260; // Wider cards for senior/executive leadership (print)
 export const PRINT_NODE_HEIGHT = 100;
 export const PRINT_H_GAP = 24;
 export const PRINT_V_GAP = 60;
@@ -121,10 +123,11 @@ function subtreeWidth(
   embeddedProgramIds: Set<string>,
   embeddedSubDeptIds: Set<string>,
 ): number {
+  const nodeWidth = getNodeWidth(nodes, nodeId);
   const children = getVisibleChildren(nodes, nodeId, embeddedDeptIds, embeddedProgramIds, embeddedSubDeptIds);
-  if (children.length === 0) return NODE_WIDTH;
+  if (children.length === 0) return nodeWidth;
   const total = children.reduce((sum, c) => sum + subtreeWidth(nodes, c.id, embeddedDeptIds, embeddedProgramIds, embeddedSubDeptIds), 0);
-  return Math.max(NODE_WIDTH, total + H_GAP * (children.length - 1));
+  return Math.max(nodeWidth, total + H_GAP * (children.length - 1));
 }
 
 // Get the effective height of a node (shorter for standalone dark cards like Resident Pastor)
@@ -133,6 +136,15 @@ function getNodeEffectiveHeight(nodeId: string): number {
     return DARK_CARD_HEADER_HEIGHT;
   }
   return NODE_HEIGHT;
+}
+
+// Get the width for a node based on its category
+function getNodeWidth(nodes: OrgNode[], nodeId: string): number {
+  const node = nodes.find(n => n.id === nodeId);
+  if (node?.category === 'senior-leadership' || node?.category === 'executive-leadership') {
+    return WIDE_NODE_WIDTH;
+  }
+  return NODE_WIDTH;
 }
 
 // Assign (x, y) positions recursively
@@ -146,8 +158,9 @@ function assignPositions(
   embeddedProgramIds: Set<string>,
   embeddedSubDeptIds: Set<string>,
 ) {
-  const x = centerX - NODE_WIDTH / 2;
-  positions.set(nodeId, { id: nodeId, x, y: currentY, width: NODE_WIDTH, height: NODE_HEIGHT });
+  const nodeWidth = getNodeWidth(nodes, nodeId);
+  const x = centerX - nodeWidth / 2;
+  positions.set(nodeId, { id: nodeId, x, y: currentY, width: nodeWidth, height: NODE_HEIGHT });
 
   const children = getVisibleChildren(nodes, nodeId, embeddedDeptIds, embeddedProgramIds, embeddedSubDeptIds);
   if (children.length === 0) return;

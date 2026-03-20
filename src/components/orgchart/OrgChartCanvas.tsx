@@ -69,7 +69,7 @@ export function OrgChartCanvas({
 
   const canvasWidth = useMemo(() => {
     let maxX = 400;
-    for (const pos of positions.values()) maxX = Math.max(maxX, pos.x + NODE_WIDTH + H_GAP);
+    for (const pos of positions.values()) maxX = Math.max(maxX, pos.x + pos.width + H_GAP);
     return maxX;
   }, [positions]);
 

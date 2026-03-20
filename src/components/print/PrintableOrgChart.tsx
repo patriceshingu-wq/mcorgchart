@@ -1,9 +1,10 @@
 import React, { useMemo } from 'react';
 import type { OrgNode, NodePosition } from '../../types';
-import { CATEGORY_COLORS, STATUS_COLORS, MINISTRY_PALETTES, SENIOR_PASTORS_PALETTE, RESIDENT_PASTOR_PALETTE } from '../../types';
+import { CATEGORY_COLORS, STATUS_COLORS, getMinistryPalette, SENIOR_PASTORS_PALETTE, RESIDENT_PASTOR_PALETTE } from '../../types';
 import {
   computeEmbeddedSets,
   PRINT_NODE_WIDTH as NODE_WIDTH,
+  PRINT_WIDE_NODE_WIDTH as WIDE_NODE_WIDTH,
   PRINT_NODE_HEIGHT as NODE_HEIGHT,
   PRINT_H_GAP as H_GAP,
   PRINT_V_GAP as V_GAP,
@@ -14,9 +15,18 @@ function getInitials(title: string): string {
   return title
     .split(/\s+/)
     .filter(Boolean)
+    .filter(w => /^[a-zA-Z]/.test(w)) // Only words starting with a letter
     .slice(0, 2)
     .map(w => w[0].toUpperCase())
     .join('');
+}
+
+function formatPersonDisplay(personTitle: string | undefined, personName: string): string {
+  const title = personTitle?.trim();
+  const name = personName?.trim();
+  if (!name) return '';
+  if (!title) return name;
+  return `${title} ${name}`;
 }
 
 // Height constants for print layout (matching screen constants but scaled)
@@ -100,11 +110,20 @@ function computePrintLayout(
       .sort((a, b) => a.order - b.order);
   }
 
+  function getNodeWidth(nodeId: string): number {
+    const node = nodes.find(n => n.id === nodeId);
+    if (node?.category === 'senior-leadership' || node?.category === 'executive-leadership') {
+      return WIDE_NODE_WIDTH;
+    }
+    return NODE_WIDTH;
+  }
+
   function subtreeWidth(nodeId: string): number {
+    const nodeWidth = getNodeWidth(nodeId);
     const children = getChildren(nodeId);
-    if (children.length === 0) return NODE_WIDTH;
+    if (children.length === 0) return nodeWidth;
     const total = children.reduce((sum, c) => sum + subtreeWidth(c.id), 0);
-    return Math.max(NODE_WIDTH, total + H_GAP * (children.length - 1));
+    return Math.max(nodeWidth, total + H_GAP * (children.length - 1));
   }
 
   // Find max height among siblings at each depth, then use cumulative Y
@@ -146,10 +165,11 @@ function computePrintLayout(
 
   function assignPositions(nodeId: string, centerX: number) {
     const depth = depthMap.get(nodeId) ?? 0;
-    const x = centerX - NODE_WIDTH / 2;
+    const nodeWidth = getNodeWidth(nodeId);
+    const x = centerX - nodeWidth / 2;
     const y = yOffsetByDepth.get(depth) ?? 0;
     const height = nodeHeights.get(nodeId) ?? NODE_HEIGHT;
-    positions.set(nodeId, { id: nodeId, x, y, width: NODE_WIDTH, height });
+    positions.set(nodeId, { id: nodeId, x, y, width: nodeWidth, height });
 
     const children = getChildren(nodeId);
     if (children.length === 0) return;
@@ -259,7 +279,7 @@ function PrintNode({
   const isDeptWithSubDepts = node.category === 'department' && embeddedSubDepts.length > 0;
   const isDarkCard = isMinistry || isExecTeam || isSeniorTeam || isResidentPastor || isDeptWithSubDepts;
 
-  const ministryPalette = isMinistry ? MINISTRY_PALETTES[node.id] : null;
+  const ministryPalette = isMinistry ? getMinistryPalette(node.id, node.colorIndex) : null;
   const seniorPalette = isSeniorTeam ? SENIOR_PASTORS_PALETTE : null;
   const residentPalette = isResidentPastor ? RESIDENT_PASTOR_PALETTE : null;
   const deptPalette = isDeptWithSubDepts ? { accent: '#F97316', bg: '#431407', border: '#9a3412' } : null;
@@ -301,13 +321,28 @@ function PrintNode({
                 flexShrink: 0,
               }}
             >
-              {getInitials(node.title)}
+              {isResidentPastor && node.personName
+                ? getInitials(node.personName)
+                : getInitials(node.title)}
             </div>
             <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ fontSize: 11, fontWeight: 600, lineHeight: 1.2 }}>{node.title}</div>
-              <div style={{ fontSize: 9, opacity: 0.6, marginTop: 2 }}>
-                {isResidentPastor && node.personName ? node.personName : isMinistry ? 'Ministry' : isSeniorTeam ? 'Senior Leadership' : isDeptWithSubDepts ? 'Department' : 'Executive'}
-              </div>
+              {isResidentPastor ? (
+                <>
+                  <div style={{ fontSize: 11, fontWeight: 600, lineHeight: 1.2 }}>
+                    {node.personName ? formatPersonDisplay(node.personTitle, node.personName) : '—'}
+                  </div>
+                  <div style={{ fontSize: 9, opacity: 0.6, marginTop: 2 }}>{node.title}</div>
+                </>
+              ) : (
+                <>
+                  <div style={{ fontSize: 11, fontWeight: 600, lineHeight: 1.2 }}>{node.title}</div>
+                  <div style={{ fontSize: 9, opacity: 0.6, marginTop: 2 }}>
+                    {node.personName
+                      ? formatPersonDisplay(node.personTitle, node.personName)
+                      : isMinistry ? 'Ministry' : isSeniorTeam ? 'Senior Leadership' : isDeptWithSubDepts ? 'Department' : 'Executive'}
+                  </div>
+                </>
+              )}
             </div>
           </div>
         </div>
@@ -449,7 +484,7 @@ function PrintNode({
           />
         </div>
         {node.personName ? (
-          <div style={{ fontSize: 10, color: '#64748b', marginTop: 3 }}>{node.personName}</div>
+          <div style={{ fontSize: 10, color: '#64748b', marginTop: 3 }}>{formatPersonDisplay(node.personTitle, node.personName)}</div>
         ) : (
           <div style={{ fontSize: 10, color: '#cbd5e1', marginTop: 3, fontStyle: 'italic' }}>—</div>
         )}
@@ -502,7 +537,7 @@ export function PrintableOrgChart({ nodes, churchName, title }: PrintableOrgChar
 
   const canvasWidth = useMemo(() => {
     let maxX = 400;
-    for (const pos of positions.values()) maxX = Math.max(maxX, pos.x + NODE_WIDTH + H_GAP);
+    for (const pos of positions.values()) maxX = Math.max(maxX, pos.x + pos.width + H_GAP);
     return maxX;
   }, [positions]);
 

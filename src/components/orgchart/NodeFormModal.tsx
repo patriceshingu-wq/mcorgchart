@@ -8,7 +8,9 @@ import { Textarea } from '../ui/Textarea';
 import { Select, SelectItem } from '../ui/Select';
 import { ChevronUp, ChevronDown, AlertTriangle } from 'lucide-react';
 import type { OrgNode } from '../../types';
+import { MINISTRY_PALETTE_OPTIONS } from '../../types';
 import { getChildren } from '../../lib/utils';
+import { cn } from '../../lib/utils';
 import type { TranslationKeys } from '../../data/translations';
 
 // Validation constants
@@ -33,6 +35,7 @@ function buildParentOptions(nodes: OrgNode[], excludeId?: string, excludeDescend
 
 export function NodeFormModal({ open, onOpenChange, onSubmit, initialNode, nodes, t, defaultParentId }: NodeFormModalProps) {
   const [title, setTitle] = useState('');
+  const [personTitle, setPersonTitle] = useState('');
   const [personName, setPersonName] = useState('');
   const [description, setDescription] = useState('');
   const [category, setCategory] = useState<OrgNode['category']>('department');
@@ -40,12 +43,14 @@ export function NodeFormModal({ open, onOpenChange, onSubmit, initialNode, nodes
   const [status, setStatus] = useState<OrgNode['status']>('active');
   const [parentId, setParentId] = useState<string>('__none__');
   const [order, setOrder] = useState(0);
+  const [colorIndex, setColorIndex] = useState<number | undefined>(undefined);
   const [errors, setErrors] = useState<{ title?: string; personName?: string; description?: string; duplicate?: string }>({});
 
   useEffect(() => {
     if (open) {
       if (initialNode) {
         setTitle(initialNode.title);
+        setPersonTitle(initialNode.personTitle ?? '');
         setPersonName(initialNode.personName);
         setDescription(initialNode.description);
         setCategory(initialNode.category);
@@ -53,8 +58,10 @@ export function NodeFormModal({ open, onOpenChange, onSubmit, initialNode, nodes
         setStatus(initialNode.status);
         setParentId(initialNode.parentId ?? '__none__');
         setOrder(initialNode.order);
+        setColorIndex(initialNode.colorIndex);
       } else {
         setTitle('');
+        setPersonTitle('');
         setPersonName('');
         setDescription('');
         setCategory('department');
@@ -62,6 +69,7 @@ export function NodeFormModal({ open, onOpenChange, onSubmit, initialNode, nodes
         setStatus('vacant'); // Default to vacant for new nodes (no person assigned yet)
         setParentId(defaultParentId !== undefined ? (defaultParentId ?? '__none__') : '__none__');
         setOrder(0);
+        setColorIndex(undefined);
       }
       setErrors({});
     }
@@ -111,6 +119,7 @@ export function NodeFormModal({ open, onOpenChange, onSubmit, initialNode, nodes
     onSubmit({
       id: initialNode?.id,
       title: title.trim(),
+      personTitle: personTitle.trim(),
       personName: personName.trim(),
       description: description.trim(),
       category,
@@ -119,6 +128,7 @@ export function NodeFormModal({ open, onOpenChange, onSubmit, initialNode, nodes
       parentId: parentId === '__none__' ? null : parentId,
       order,
       isCollapsed: initialNode?.isCollapsed ?? false,
+      colorIndex: category === 'ministry-system' ? colorIndex : undefined,
     });
     onOpenChange(false);
   }
@@ -143,9 +153,9 @@ export function NodeFormModal({ open, onOpenChange, onSubmit, initialNode, nodes
           <DialogTitle>{initialNode ? t.editNode : t.addNode}</DialogTitle>
         </DialogHeader>
         <DialogBody className="space-y-4">
-          {/* Title */}
+          {/* Role / Position */}
           <div>
-            <label className="block text-xs font-medium text-slate-700 mb-1">{t.title} <span className="text-rose-500">*</span></label>
+            <label className="block text-xs font-medium text-slate-700 mb-1">{t.rolePosition ?? 'Role / Position'} <span className="text-rose-500">*</span></label>
             <Input
               value={title}
               onChange={e => {
@@ -155,7 +165,7 @@ export function NodeFormModal({ open, onOpenChange, onSubmit, initialNode, nodes
                   if (errors.title) setErrors(prev => ({ ...prev, title: undefined }));
                 }
               }}
-              placeholder={t.title}
+              placeholder="e.g., Worship Director, Youth Pastor"
               className={errors.title ? 'border-rose-400 focus:ring-rose-500' : ''}
               autoFocus
               maxLength={MAX_TITLE_LENGTH}
@@ -177,37 +187,41 @@ export function NodeFormModal({ open, onOpenChange, onSubmit, initialNode, nodes
             </div>
           </div>
 
-          {/* Person Name */}
-          <div>
-            <label className="block text-xs font-medium text-slate-700 mb-1">{t.personName}</label>
-            <Input
-              value={personName}
-              onChange={e => {
-                const newValue = e.target.value;
-                if (newValue.length <= MAX_PERSON_NAME_LENGTH) {
-                  setPersonName(newValue);
-                  if (errors.personName) setErrors(prev => ({ ...prev, personName: undefined }));
-                  // Auto-toggle status between active/vacant (don't override inactive)
-                  if (status !== 'inactive') {
-                    setStatus(newValue.trim() ? 'active' : 'vacant');
+          {/* Person Title + Assigned To row */}
+          <div className="grid grid-cols-3 gap-3">
+            <div>
+              <label className="block text-xs font-medium text-slate-700 mb-1">{t.personTitle ?? 'Title'}</label>
+              <Input
+                value={personTitle}
+                onChange={e => setPersonTitle(e.target.value)}
+                placeholder="e.g., Pastor"
+                maxLength={30}
+              />
+            </div>
+            <div className="col-span-2">
+              <label className="block text-xs font-medium text-slate-700 mb-1">{t.assignedTo ?? 'Assigned To'}</label>
+              <Input
+                value={personName}
+                onChange={e => {
+                  const newValue = e.target.value;
+                  if (newValue.length <= MAX_PERSON_NAME_LENGTH) {
+                    setPersonName(newValue);
+                    if (errors.personName) setErrors(prev => ({ ...prev, personName: undefined }));
+                    // Auto-toggle status between active/vacant (don't override inactive)
+                    if (status !== 'inactive') {
+                      setStatus(newValue.trim() ? 'active' : 'vacant');
+                    }
                   }
-                }
-              }}
-              placeholder={t.personName}
-              maxLength={MAX_PERSON_NAME_LENGTH}
-              className={errors.personName ? 'border-rose-400 focus:ring-rose-500' : ''}
-            />
-            <div className="flex justify-between items-center mt-1">
-              {errors.personName ? (
-                <p className="text-xs text-rose-500">{errors.personName}</p>
-              ) : (
-                <span />
-              )}
-              <span className={`text-xs ${personName.length > MAX_PERSON_NAME_LENGTH * 0.9 ? 'text-amber-600' : 'text-slate-400'}`}>
-                {personName.length}/{MAX_PERSON_NAME_LENGTH}
-              </span>
+                }}
+                placeholder="e.g., John Smith"
+                maxLength={MAX_PERSON_NAME_LENGTH}
+                className={errors.personName ? 'border-rose-400 focus:ring-rose-500' : ''}
+              />
             </div>
           </div>
+          {errors.personName && (
+            <p className="text-xs text-rose-500 -mt-2">{errors.personName}</p>
+          )}
 
           {/* Description */}
           <div>
@@ -259,6 +273,35 @@ export function NodeFormModal({ open, onOpenChange, onSubmit, initialNode, nodes
               </Select>
             </div>
           </div>
+
+          {/* Color Picker (Ministry only) */}
+          {category === 'ministry-system' && (
+            <div>
+              <label className="block text-xs font-medium text-slate-700 mb-2">{t.color ?? 'Color'}</label>
+              <div className="flex flex-wrap gap-2">
+                {MINISTRY_PALETTE_OPTIONS.map((palette, index) => (
+                  <button
+                    key={index}
+                    type="button"
+                    onClick={() => setColorIndex(index)}
+                    className={cn(
+                      'w-8 h-8 rounded-lg border-2 transition-all hover:scale-110',
+                      colorIndex === index
+                        ? 'border-slate-900 ring-2 ring-slate-900 ring-offset-1'
+                        : 'border-transparent'
+                    )}
+                    style={{ backgroundColor: palette.bg, borderColor: colorIndex === index ? palette.accent : 'transparent' }}
+                    title={palette.name}
+                  >
+                    <span
+                      className="block w-3 h-3 rounded-full mx-auto"
+                      style={{ backgroundColor: palette.accent }}
+                    />
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
 
           {/* Status */}
           <div>

@@ -96,9 +96,6 @@ export function OrgChartConnectors({
       ).length;
       if (execCount > 0) {
         effectiveHeight = DARK_CARD_HEADER_HEIGHT + execCount * EXEC_ROW_HEIGHT + LIST_PADDING;
-      } else if (effectiveParentId === RESIDENT_PASTOR_ID) {
-        // Resident Pastor is a standalone dark card with no embedded children
-        effectiveHeight = DARK_CARD_HEADER_HEIGHT;
       }
     } else if (parentNode?.category === 'senior-leadership') {
       const seniorCount = allNodes.filter(
@@ -106,6 +103,9 @@ export function OrgChartConnectors({
       ).length;
       if (seniorCount > 0) {
         effectiveHeight = DARK_CARD_HEADER_HEIGHT + seniorCount * SENIOR_ROW_HEIGHT + LIST_PADDING;
+      } else if (effectiveParentId === RESIDENT_PASTOR_ID) {
+        // Resident Pastor is a standalone dark card with no embedded children
+        effectiveHeight = DARK_CARD_HEADER_HEIGHT;
       }
     }
 

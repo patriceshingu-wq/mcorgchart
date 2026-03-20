@@ -13,9 +13,18 @@ function getInitials(name: string): string {
   return name
     .split(/\s+/)
     .filter(Boolean)
+    .filter(w => /^[a-zA-Z]/.test(w)) // Only words starting with a letter
     .slice(0, 2)
     .map(w => w[0].toUpperCase())
     .join('');
+}
+
+function formatPersonDisplay(personTitle: string | undefined, personName: string): string {
+  const title = personTitle?.trim();
+  const name = personName?.trim();
+  if (!name) return '';
+  if (!title) return name;
+  return `${title} ${name}`;
 }
 
 interface EmbeddedExecListProps {
@@ -55,7 +64,9 @@ export function EmbeddedExecList({ execs, accentColor, onEdit, onSelect }: Embed
 
             {/* Role + person name */}
             <div className="flex-1 min-w-0">
-              <div className="text-[11px] font-semibold text-white/90 truncate">{exec.personName || '—'}</div>
+              <div className="text-[11px] font-semibold text-white/90 truncate">
+                {exec.personName ? formatPersonDisplay(exec.personTitle, exec.personName) : '—'}
+              </div>
               <div className="text-[9px] text-white/50 truncate">{exec.title}</div>
             </div>
 

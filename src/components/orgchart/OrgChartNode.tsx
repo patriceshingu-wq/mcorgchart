@@ -8,7 +8,7 @@ import {
   DropdownMenuSeparator,
 } from '../ui/DropdownMenu';
 import type { OrgNode, NodePosition } from '../../types';
-import { CATEGORY_COLORS, STATUS_COLORS, MINISTRY_PALETTES, SENIOR_PASTORS_PALETTE, RESIDENT_PASTOR_PALETTE } from '../../types';
+import { CATEGORY_COLORS, STATUS_COLORS, getMinistryPalette, SENIOR_PASTORS_PALETTE, RESIDENT_PASTOR_PALETTE } from '../../types';
 import { cn } from '../../lib/utils';
 import type { TranslationKeys } from '../../data/translations';
 import { EmbeddedDeptList } from './EmbeddedDeptList';
@@ -24,9 +24,19 @@ function getInitials(title: string): string {
   return title
     .split(/\s+/)
     .filter(Boolean)
+    .filter(w => /^[a-zA-Z]/.test(w)) // Only words starting with a letter
     .slice(0, 2)
     .map(w => w[0].toUpperCase())
     .join('');
+}
+
+// Format person display: "Pastor John Smith" or just "John Smith"
+function formatPersonDisplay(personTitle: string | undefined, personName: string): string {
+  const title = personTitle?.trim();
+  const name = personName?.trim();
+  if (!name) return '';
+  if (!title) return name;
+  return `${title} ${name}`;
 }
 
 interface OrgChartNodeProps {
@@ -83,7 +93,7 @@ export function OrgChartNode({
   const isDeptWithSubDepts = node.category === 'department' && embeddedSubDepts.length > 0;
   const isDarkCard = isMinistry || isExecTeam || isSeniorTeam || isResidentPastor || isDeptWithSubDepts;
 
-  const ministryPalette = isMinistry ? MINISTRY_PALETTES[node.id] : null;
+  const ministryPalette = isMinistry ? getMinistryPalette(node.id, node.colorIndex) : null;
   const seniorPalette = isSeniorTeam ? SENIOR_PASTORS_PALETTE : null;
   const residentPalette = isResidentPastor ? RESIDENT_PASTOR_PALETTE : null;
   // Departments with sub-departments use the department orange color
@@ -124,15 +134,32 @@ export function OrgChartNode({
               className="flex-shrink-0 rounded-full flex items-center justify-center text-white font-bold text-[11px]"
               style={{ width: 32, height: 32, backgroundColor: activePalette?.accent ?? categoryColor }}
             >
-              {getInitials(node.title)}
+              {isResidentPastor && node.personName
+                ? getInitials(node.personName)
+                : getInitials(node.title)}
             </div>
             <div className="flex-1 min-w-0">
-              <div className="text-[12px] font-semibold text-white leading-tight line-clamp-2 pr-1">
-                {node.title}
-              </div>
-              <div className="text-[10px] text-white/50 mt-0.5">
-                {isResidentPastor && node.personName ? node.personName : isMinistry ? 'Ministry Division' : isSeniorTeam ? 'Senior Leadership' : isDeptWithSubDepts ? 'Department' : 'Executive Leadership'}
-              </div>
+              {isResidentPastor ? (
+                <>
+                  <div className="text-[12px] font-semibold text-white leading-tight line-clamp-2 pr-1">
+                    {node.personName ? formatPersonDisplay(node.personTitle, node.personName) : '—'}
+                  </div>
+                  <div className="text-[10px] text-white/50 mt-0.5">
+                    {node.title}
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div className="text-[12px] font-semibold text-white leading-tight line-clamp-2 pr-1">
+                    {node.title}
+                  </div>
+                  <div className="text-[10px] text-white/50 mt-0.5">
+                    {node.personName
+                      ? formatPersonDisplay(node.personTitle, node.personName)
+                      : isMinistry ? 'Ministry Division' : isSeniorTeam ? 'Senior Leadership' : isDeptWithSubDepts ? 'Department' : 'Executive Leadership'}
+                  </div>
+                </>
+              )}
             </div>
             {/* Kebab menu */}
             <DropdownMenuRoot>
@@ -252,7 +279,7 @@ export function OrgChartNode({
           <div className="pl-3.5 pr-2 pt-2.5 pb-3">
             <div className="text-xs font-semibold text-slate-900 leading-tight line-clamp-2 pr-1">{node.title}</div>
             {node.personName ? (
-              <div className="text-[11px] text-slate-500 mt-0.5 truncate">{node.personName}</div>
+              <div className="text-[11px] text-slate-500 mt-0.5 truncate">{formatPersonDisplay(node.personTitle, node.personName)}</div>
             ) : (
               <div className="text-[11px] text-slate-300 mt-0.5 italic">—</div>
             )}
