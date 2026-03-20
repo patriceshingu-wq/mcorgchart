@@ -8,7 +8,7 @@ import {
   DropdownMenuSeparator,
 } from '../ui/DropdownMenu';
 import type { OrgNode, NodePosition } from '../../types';
-import { CATEGORY_COLORS, STATUS_COLORS, MINISTRY_PALETTES, SENIOR_PASTORS_PALETTE } from '../../types';
+import { CATEGORY_COLORS, STATUS_COLORS, MINISTRY_PALETTES, SENIOR_PASTORS_PALETTE, RESIDENT_PASTOR_PALETTE } from '../../types';
 import { cn } from '../../lib/utils';
 import type { TranslationKeys } from '../../data/translations';
 import { EmbeddedDeptList } from './EmbeddedDeptList';
@@ -35,6 +35,8 @@ interface OrgChartNodeProps {
   embeddedDepts: OrgNode[];
   embeddedPrograms: OrgNode[];
   embeddedExecs: OrgNode[];
+  embeddedSubDepts: OrgNode[];
+  subDeptsByParent?: Map<string, OrgNode[]>;
   isSelected: boolean;
   isMatching: boolean;
   hasActiveFilter: boolean;
@@ -55,6 +57,8 @@ export function OrgChartNode({
   embeddedDepts,
   embeddedPrograms,
   embeddedExecs,
+  embeddedSubDepts,
+  subDeptsByParent,
   isSelected,
   isMatching,
   hasActiveFilter,
@@ -75,13 +79,18 @@ export function OrgChartNode({
   const isMinistry = node.category === 'ministry-system';
   const isExecTeam = node.category === 'executive-leadership' && embeddedExecs.length > 0;
   const isSeniorTeam = node.category === 'senior-leadership' && embeddedExecs.length > 0;
-  const isDarkCard = isMinistry || isExecTeam || isSeniorTeam;
+  const isResidentPastor = node.id === 'rp-001'; // Resident Pastor gets special styling
+  const isDeptWithSubDepts = node.category === 'department' && embeddedSubDepts.length > 0;
+  const isDarkCard = isMinistry || isExecTeam || isSeniorTeam || isResidentPastor || isDeptWithSubDepts;
 
   const ministryPalette = isMinistry ? MINISTRY_PALETTES[node.id] : null;
   const seniorPalette = isSeniorTeam ? SENIOR_PASTORS_PALETTE : null;
-  const activePalette = ministryPalette ?? seniorPalette;
-  // Exec team uses Tailwind blue; ministry/senior use inline palette styles
-  const darkBg = isExecTeam ? 'bg-blue-900 border-blue-700' : '';
+  const residentPalette = isResidentPastor ? RESIDENT_PASTOR_PALETTE : null;
+  // Departments with sub-departments use the department orange color
+  const deptPalette = isDeptWithSubDepts ? { accent: '#F97316', bg: '#431407', border: '#9a3412' } : null;
+  const activePalette = ministryPalette ?? seniorPalette ?? residentPalette ?? deptPalette;
+  // Exec team uses Tailwind blue; ministry/senior/resident/dept use inline palette styles
+  const darkBg = (isExecTeam && !activePalette) ? 'bg-blue-900 border-blue-700' : '';
 
   return (
     <div
@@ -122,7 +131,7 @@ export function OrgChartNode({
                 {node.title}
               </div>
               <div className="text-[10px] text-white/50 mt-0.5">
-                {isMinistry ? 'Ministry Division' : isSeniorTeam ? 'Senior Leadership' : 'Executive Leadership'}
+                {isResidentPastor && node.personName ? node.personName : isMinistry ? 'Ministry Division' : isSeniorTeam ? 'Senior Leadership' : isDeptWithSubDepts ? 'Department' : 'Executive Leadership'}
               </div>
             </div>
             {/* Kebab menu */}
@@ -157,18 +166,32 @@ export function OrgChartNode({
             </DropdownMenuRoot>
           </div>
 
-          {/* Embedded list — departments and programs for ministries, executives for exec teams */}
+          {/* Embedded list — departments and programs for ministries, executives for exec teams, sub-depts for depts */}
           {isMinistry ? (
             <div className="bg-black/25 rounded-b-xl overflow-hidden">
               <EmbeddedDeptList
                 depts={embeddedDepts}
                 programs={embeddedPrograms}
+                subDeptsByParent={subDeptsByParent}
                 accentColor={activePalette?.accent}
                 onEdit={onEdit}
                 onSelect={onSelect}
+                onAddChild={onAddChild}
+                onDelete={onDelete}
               />
             </div>
-          ) : (
+          ) : isDeptWithSubDepts ? (
+            <div className="bg-black/25 rounded-b-xl overflow-hidden">
+              <EmbeddedDeptList
+                depts={embeddedSubDepts}
+                accentColor={activePalette?.accent}
+                onEdit={onEdit}
+                onSelect={onSelect}
+                onAddChild={onAddChild}
+                onDelete={onDelete}
+              />
+            </div>
+          ) : (isExecTeam || isSeniorTeam) ? (
             <div className="bg-black/25 rounded-b-xl overflow-hidden">
               <EmbeddedExecList
                 execs={embeddedExecs}
@@ -177,7 +200,7 @@ export function OrgChartNode({
                 onSelect={onSelect}
               />
             </div>
-          )}
+          ) : null}
         </>
       ) : (
         /* ── STANDARD WHITE CARD ── */

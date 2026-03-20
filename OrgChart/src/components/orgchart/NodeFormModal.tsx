@@ -6,10 +6,15 @@ import { Button } from '../ui/Button';
 import { Input } from '../ui/Input';
 import { Textarea } from '../ui/Textarea';
 import { Select, SelectItem } from '../ui/Select';
-import { ChevronUp, ChevronDown } from 'lucide-react';
+import { ChevronUp, ChevronDown, AlertTriangle } from 'lucide-react';
 import type { OrgNode } from '../../types';
 import { getChildren } from '../../lib/utils';
 import type { TranslationKeys } from '../../data/translations';
+
+// Validation constants
+const MAX_TITLE_LENGTH = 100;
+const MAX_PERSON_NAME_LENGTH = 80;
+const MAX_DESCRIPTION_LENGTH = 500;
 
 interface NodeFormModalProps {
   open: boolean;
@@ -35,7 +40,7 @@ export function NodeFormModal({ open, onOpenChange, onSubmit, initialNode, nodes
   const [status, setStatus] = useState<OrgNode['status']>('active');
   const [parentId, setParentId] = useState<string>('__none__');
   const [order, setOrder] = useState(0);
-  const [titleError, setTitleError] = useState(false);
+  const [errors, setErrors] = useState<{ title?: string; personName?: string; description?: string; duplicate?: string }>({});
 
   useEffect(() => {
     if (open) {
@@ -54,13 +59,36 @@ export function NodeFormModal({ open, onOpenChange, onSubmit, initialNode, nodes
         setDescription('');
         setCategory('department');
         setLanguage('both');
-        setStatus('active');
+        setStatus('vacant'); // Default to vacant for new nodes (no person assigned yet)
         setParentId(defaultParentId !== undefined ? (defaultParentId ?? '__none__') : '__none__');
         setOrder(0);
       }
-      setTitleError(false);
+      setErrors({});
     }
   }, [open, initialNode, defaultParentId]);
+
+  // Check for duplicate titles
+  const duplicateNode = nodes.find(n =>
+    n.title.toLowerCase().trim() === title.toLowerCase().trim() &&
+    n.id !== initialNode?.id &&
+    title.trim() !== ''
+  );
+
+  // Validate field and return error message if invalid
+  function validateField(field: 'title' | 'personName' | 'description', value: string): string | undefined {
+    const trimmed = value.trim();
+    if (field === 'title') {
+      if (!trimmed) return t.titleRequired;
+      if (trimmed.length > MAX_TITLE_LENGTH) return `Max ${MAX_TITLE_LENGTH} characters`;
+    }
+    if (field === 'personName' && trimmed.length > MAX_PERSON_NAME_LENGTH) {
+      return `Max ${MAX_PERSON_NAME_LENGTH} characters`;
+    }
+    if (field === 'description' && trimmed.length > MAX_DESCRIPTION_LENGTH) {
+      return `Max ${MAX_DESCRIPTION_LENGTH} characters`;
+    }
+    return undefined;
+  }
 
   // Compute siblings for order adjustment
   const siblings = nodes.filter(n =>
@@ -69,7 +97,17 @@ export function NodeFormModal({ open, onOpenChange, onSubmit, initialNode, nodes
   );
 
   function handleSubmit() {
-    if (!title.trim()) { setTitleError(true); return; }
+    // Validate all fields
+    const newErrors: typeof errors = {};
+    newErrors.title = validateField('title', title);
+    newErrors.personName = validateField('personName', personName);
+    newErrors.description = validateField('description', description);
+
+    if (Object.values(newErrors).some(Boolean)) {
+      setErrors(newErrors);
+      return;
+    }
+
     onSubmit({
       id: initialNode?.id,
       title: title.trim(),
@@ -110,24 +148,94 @@ export function NodeFormModal({ open, onOpenChange, onSubmit, initialNode, nodes
             <label className="block text-xs font-medium text-slate-700 mb-1">{t.title} <span className="text-rose-500">*</span></label>
             <Input
               value={title}
-              onChange={e => { setTitle(e.target.value); if (titleError) setTitleError(false); }}
+              onChange={e => {
+                const newValue = e.target.value;
+                if (newValue.length <= MAX_TITLE_LENGTH) {
+                  setTitle(newValue);
+                  if (errors.title) setErrors(prev => ({ ...prev, title: undefined }));
+                }
+              }}
               placeholder={t.title}
-              className={titleError ? 'border-rose-400 focus:ring-rose-500' : ''}
+              className={errors.title ? 'border-rose-400 focus:ring-rose-500' : ''}
               autoFocus
+              maxLength={MAX_TITLE_LENGTH}
             />
-            {titleError && <p className="text-xs text-rose-500 mt-1">{t.titleRequired}</p>}
+            <div className="flex justify-between items-center mt-1">
+              {errors.title ? (
+                <p className="text-xs text-rose-500">{errors.title}</p>
+              ) : duplicateNode ? (
+                <p className="text-xs text-amber-600 flex items-center gap-1">
+                  <AlertTriangle className="h-3 w-3" />
+                  A node with this title already exists
+                </p>
+              ) : (
+                <span />
+              )}
+              <span className={`text-xs ${title.length > MAX_TITLE_LENGTH * 0.9 ? 'text-amber-600' : 'text-slate-400'}`}>
+                {title.length}/{MAX_TITLE_LENGTH}
+              </span>
+            </div>
           </div>
 
           {/* Person Name */}
           <div>
             <label className="block text-xs font-medium text-slate-700 mb-1">{t.personName}</label>
-            <Input value={personName} onChange={e => setPersonName(e.target.value)} placeholder={t.personName} />
+            <Input
+              value={personName}
+              onChange={e => {
+                const newValue = e.target.value;
+                if (newValue.length <= MAX_PERSON_NAME_LENGTH) {
+                  setPersonName(newValue);
+                  if (errors.personName) setErrors(prev => ({ ...prev, personName: undefined }));
+                  // Auto-toggle status between active/vacant (don't override inactive)
+                  if (status !== 'inactive') {
+                    setStatus(newValue.trim() ? 'active' : 'vacant');
+                  }
+                }
+              }}
+              placeholder={t.personName}
+              maxLength={MAX_PERSON_NAME_LENGTH}
+              className={errors.personName ? 'border-rose-400 focus:ring-rose-500' : ''}
+            />
+            <div className="flex justify-between items-center mt-1">
+              {errors.personName ? (
+                <p className="text-xs text-rose-500">{errors.personName}</p>
+              ) : (
+                <span />
+              )}
+              <span className={`text-xs ${personName.length > MAX_PERSON_NAME_LENGTH * 0.9 ? 'text-amber-600' : 'text-slate-400'}`}>
+                {personName.length}/{MAX_PERSON_NAME_LENGTH}
+              </span>
+            </div>
           </div>
 
           {/* Description */}
           <div>
             <label className="block text-xs font-medium text-slate-700 mb-1">{t.description}</label>
-            <Textarea value={description} onChange={e => setDescription(e.target.value)} placeholder={t.description} rows={3} />
+            <Textarea
+              value={description}
+              onChange={e => {
+                const newValue = e.target.value;
+                if (newValue.length <= MAX_DESCRIPTION_LENGTH) {
+                  setDescription(newValue);
+                  if (errors.description) setErrors(prev => ({ ...prev, description: undefined }));
+                }
+              }}
+              placeholder={t.description}
+              rows={3}
+              maxLength={MAX_DESCRIPTION_LENGTH}
+              className={errors.description ? 'border-rose-400 focus:ring-rose-500' : ''}
+            />
+            <div className="flex justify-between items-center mt-1">
+              {errors.description ? (
+                <p className="text-xs text-rose-500">{errors.description}</p>
+              ) : (
+                <span />
+              )}
+              <span className={`text-xs ${description.length > MAX_DESCRIPTION_LENGTH * 0.9 ? 'text-amber-600' : 'text-slate-400'}`}>
+                {description.length}/{MAX_DESCRIPTION_LENGTH}
+              </span>
+            </div>
           </div>
 
           {/* Category + Language row */}
@@ -156,9 +264,24 @@ export function NodeFormModal({ open, onOpenChange, onSubmit, initialNode, nodes
           <div>
             <label className="block text-xs font-medium text-slate-700 mb-1">{t.status}</label>
             <Select value={status} onValueChange={v => setStatus(v as OrgNode['status'])}>
-              <SelectItem value="active">{t.active}</SelectItem>
-              <SelectItem value="vacant">{t.vacant}</SelectItem>
-              <SelectItem value="inactive">{t.inactive}</SelectItem>
+              <SelectItem value="active">
+                <div>
+                  <div>{t.active}</div>
+                  <div className="text-[10px] text-slate-400 font-normal">{t.activeDesc}</div>
+                </div>
+              </SelectItem>
+              <SelectItem value="vacant">
+                <div>
+                  <div>{t.vacant}</div>
+                  <div className="text-[10px] text-slate-400 font-normal">{t.vacantDesc}</div>
+                </div>
+              </SelectItem>
+              <SelectItem value="inactive">
+                <div>
+                  <div>{t.inactive}</div>
+                  <div className="text-[10px] text-slate-400 font-normal">{t.inactiveDesc}</div>
+                </div>
+              </SelectItem>
             </Select>
           </div>
 

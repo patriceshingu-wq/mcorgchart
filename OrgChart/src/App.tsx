@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import { TopBar } from './components/layout/TopBar';
 import { Sidebar } from './components/layout/Sidebar';
 import { OrgChartCanvas } from './components/orgchart/OrgChartCanvas';
@@ -9,6 +9,7 @@ import { DeleteConfirmDialog } from './components/orgchart/DeleteConfirmDialog';
 import { NodeListTable } from './components/listview/NodeListTable';
 import { ExportPage } from './components/export/ExportPage';
 import { SettingsPage } from './components/settings/SettingsPage';
+import { PrintableOrgChart } from './components/print/PrintableOrgChart';
 import { ToastProvider, useToast } from './components/ui/Toast';
 import { useNodes } from './hooks/useNodes';
 import { useSettings } from './hooks/useSettings';
@@ -17,13 +18,14 @@ import { useOrgTree } from './hooks/useOrgTree';
 import { getDescendantIds } from './lib/utils';
 import type { ActivePage, FilterState, OrgNode, ZoomLevel, AppSettings } from './types';
 
-const DEFAULT_FILTERS: FilterState = { search: '', category: '', language: '', status: '' };
+const DEFAULT_FILTERS: FilterState = { search: '', category: '', language: '', status: '', includeSiblings: false };
 
 function AppContent() {
   const { settings, updateSettings } = useSettings();
   const {
     nodes, addNode, updateNode, deleteNode, reassignParent,
     toggleCollapse, collapseAll, expandAll, importNodes, resetToSeed,
+    undo, redo, canUndo, canRedo,
   } = useNodes();
   const t = useTranslation(settings.language);
   const { showToast } = useToast();
@@ -40,7 +42,7 @@ function AppContent() {
   const [reassignModal, setReassignModal] = useState<{ open: boolean; node: OrgNode | null }>({ open: false, node: null });
   const [deleteDialog, setDeleteDialog] = useState<{ open: boolean; node: OrgNode | null }>({ open: false, node: null });
 
-  const { visibleNodes, rootNodes, matchingIds, hasActiveFilter, embeddedDeptIds } = useOrgTree(nodes, filters);
+  const { visibleNodes, rootNodes, matchingIds, hasActiveFilter, embeddedDeptIds, embeddedProgramIds, embeddedSubDeptIds } = useOrgTree(nodes, filters);
   const selectedNode = nodes.find(n => n.id === selectedId) ?? null;
 
   // Handlers
@@ -101,6 +103,144 @@ function AppContent() {
     setFilters(DEFAULT_FILTERS);
   }, [resetToSeed]);
 
+  // Keyboard navigation
+  useEffect(() => {
+    function handleKeyDown(e: KeyboardEvent) {
+      // Don't handle shortcuts when typing in inputs/textareas
+      const target = e.target as HTMLElement;
+      if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable) {
+        return;
+      }
+
+      // Don't handle when modals are open
+      if (formModal.open || reassignModal.open || deleteDialog.open) {
+        return;
+      }
+
+      // Undo: Ctrl/Cmd + Z
+      if ((e.ctrlKey || e.metaKey) && e.key === 'z' && !e.shiftKey) {
+        e.preventDefault();
+        if (canUndo) {
+          undo();
+          showToast(t.undo ?? 'Undo');
+        }
+        return;
+      }
+
+      // Redo: Ctrl/Cmd + Shift + Z or Ctrl/Cmd + Y
+      if ((e.ctrlKey || e.metaKey) && (e.key === 'y' || (e.key === 'z' && e.shiftKey))) {
+        e.preventDefault();
+        if (canRedo) {
+          redo();
+          showToast(t.redo ?? 'Redo');
+        }
+        return;
+      }
+
+      // Only handle arrow keys when on org-chart page with visual view
+      if (activePage !== 'org-chart' || chartView !== 'visual') return;
+
+      const selectedNode = nodes.find(n => n.id === selectedId);
+      if (!selectedNode && !['ArrowDown', 'Home'].includes(e.key)) return;
+
+      // Build navigation maps
+      const visibleNodesList = nodes.filter(n => {
+        // A node is visible if all its ancestors are not collapsed
+        let current = n;
+        while (current.parentId) {
+          const parent = nodes.find(p => p.id === current.parentId);
+          if (!parent) break;
+          if (parent.isCollapsed) return false;
+          current = parent;
+        }
+        return true;
+      });
+
+      const siblings = selectedNode
+        ? visibleNodesList.filter(n => n.parentId === selectedNode.parentId).sort((a, b) => a.order - b.order)
+        : [];
+
+      const currentIndex = siblings.findIndex(n => n.id === selectedId);
+
+      switch (e.key) {
+        case 'ArrowUp': {
+          e.preventDefault();
+          if (selectedNode?.parentId) {
+            // Go to parent
+            setSelectedId(selectedNode.parentId);
+          }
+          break;
+        }
+        case 'ArrowDown': {
+          e.preventDefault();
+          if (!selectedNode) {
+            // Select first root node
+            const rootNodes = visibleNodesList.filter(n => !n.parentId).sort((a, b) => a.order - b.order);
+            if (rootNodes.length > 0) setSelectedId(rootNodes[0].id);
+          } else if (!selectedNode.isCollapsed) {
+            // Go to first child
+            const children = visibleNodesList.filter(n => n.parentId === selectedNode.id).sort((a, b) => a.order - b.order);
+            if (children.length > 0) setSelectedId(children[0].id);
+          }
+          break;
+        }
+        case 'ArrowLeft': {
+          e.preventDefault();
+          if (currentIndex > 0) {
+            setSelectedId(siblings[currentIndex - 1].id);
+          }
+          break;
+        }
+        case 'ArrowRight': {
+          e.preventDefault();
+          if (currentIndex < siblings.length - 1) {
+            setSelectedId(siblings[currentIndex + 1].id);
+          }
+          break;
+        }
+        case 'Enter': {
+          e.preventDefault();
+          if (selectedNode) {
+            handleEdit(selectedNode);
+          }
+          break;
+        }
+        case ' ': {
+          e.preventDefault();
+          if (selectedNode) {
+            toggleCollapse(selectedNode.id);
+          }
+          break;
+        }
+        case 'Delete':
+        case 'Backspace': {
+          e.preventDefault();
+          if (selectedNode) {
+            handleDeleteRequest(selectedNode);
+          }
+          break;
+        }
+        case 'Escape': {
+          e.preventDefault();
+          setSelectedId(null);
+          break;
+        }
+        case 'Home': {
+          e.preventDefault();
+          const rootNodes = visibleNodesList.filter(n => !n.parentId).sort((a, b) => a.order - b.order);
+          if (rootNodes.length > 0) setSelectedId(rootNodes[0].id);
+          break;
+        }
+      }
+    }
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [
+    activePage, chartView, selectedId, nodes, formModal.open, reassignModal.open, deleteDialog.open,
+    canUndo, canRedo, undo, redo, showToast, t, toggleCollapse, handleEdit, handleDeleteRequest,
+  ]);
+
   const deleteDescendantCount = deleteDialog.node
     ? getDescendantIds(nodes, deleteDialog.node.id).length
     : 0;
@@ -140,6 +280,8 @@ function AppContent() {
                     matchingIds={matchingIds}
                     hasActiveFilter={hasActiveFilter}
                     embeddedDeptIds={embeddedDeptIds}
+                    embeddedProgramIds={embeddedProgramIds}
+                    embeddedSubDeptIds={embeddedSubDeptIds}
                     zoomLevel={zoomLevel}
                     onZoomChange={setZoomLevel}
                     selectedId={selectedId}
@@ -246,6 +388,13 @@ function AppContent() {
         descendantCount={deleteDescendantCount}
         onConfirm={handleDeleteConfirm}
         t={t}
+      />
+
+      {/* Printable org chart - hidden on screen, visible when printing */}
+      <PrintableOrgChart
+        nodes={nodes}
+        churchName={settings.churchName}
+        title={t.printHeader}
       />
     </div>
   );

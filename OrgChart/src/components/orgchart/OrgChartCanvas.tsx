@@ -15,6 +15,8 @@ interface OrgChartCanvasProps {
   matchingIds: Set<string>;
   hasActiveFilter: boolean;
   embeddedDeptIds: Set<string>;
+  embeddedProgramIds: Set<string>;
+  embeddedSubDeptIds: Set<string>;
   zoomLevel: ZoomLevel;
   onZoomChange: (z: ZoomLevel) => void;
   selectedId: string | null;
@@ -38,6 +40,8 @@ export function OrgChartCanvas({
   matchingIds,
   hasActiveFilter,
   embeddedDeptIds,
+  embeddedProgramIds,
+  embeddedSubDeptIds,
   zoomLevel,
   onZoomChange,
   selectedId,
@@ -59,8 +63,8 @@ export function OrgChartCanvas({
   const containerRef = useRef<HTMLDivElement>(null);
 
   const positions = useMemo(
-    () => computeLayout(visibleNodes, rootNodes, embeddedDeptIds),
-    [visibleNodes, rootNodes, embeddedDeptIds],
+    () => computeLayout(visibleNodes, rootNodes, embeddedDeptIds, embeddedProgramIds, embeddedSubDeptIds),
+    [visibleNodes, rootNodes, embeddedDeptIds, embeddedProgramIds, embeddedSubDeptIds],
   );
 
   const canvasWidth = useMemo(() => {
@@ -221,11 +225,13 @@ export function OrgChartCanvas({
               allNodes={nodes}
               positions={positions}
               embeddedDeptIds={embeddedDeptIds}
+              embeddedProgramIds={embeddedProgramIds}
+              embeddedSubDeptIds={embeddedSubDeptIds}
               canvasWidth={canvasWidth}
               canvasHeight={canvasHeight}
             />
             {visibleNodes
-              .filter(node => !embeddedDeptIds.has(node.id))
+              .filter(node => !embeddedDeptIds.has(node.id) && !embeddedProgramIds.has(node.id) && !embeddedSubDeptIds.has(node.id))
               .map(node => {
                 const pos = positions.get(node.id);
                 if (!pos) return null;
@@ -237,6 +243,25 @@ export function OrgChartCanvas({
                       .sort((a, b) => a.order - b.order)
                   : [];
 
+                // Embedded programs for ministry cards
+                const embeddedPrograms = node.category === 'ministry-system'
+                  ? nodes
+                      .filter(n => n.parentId === node.id && embeddedProgramIds.has(n.id))
+                      .sort((a, b) => a.order - b.order)
+                  : [];
+
+                // Sub-departments grouped by parent department (for ministry cards)
+                const subDeptsByParent = node.category === 'ministry-system' && embeddedDepts.length > 0
+                  ? new Map(
+                      embeddedDepts.map(dept => [
+                        dept.id,
+                        nodes
+                          .filter(n => n.parentId === dept.id && embeddedSubDeptIds.has(n.id))
+                          .sort((a, b) => a.order - b.order)
+                      ])
+                    )
+                  : undefined;
+
                 // Embedded executives for executive-leadership and senior-leadership cards
                 const embeddedExecs = (node.category === 'executive-leadership' || node.category === 'senior-leadership')
                   ? nodes
@@ -244,10 +269,17 @@ export function OrgChartCanvas({
                       .sort((a, b) => a.order - b.order)
                   : [];
 
-                // Effective visual children: non-dept direct children + hoisted programs
-                const ownChildren = nodes.filter(n => n.parentId === node.id && !embeddedDeptIds.has(n.id));
+                // Embedded sub-departments for department cards (standalone dept cards, not embedded ones)
+                const embeddedSubDepts = node.category === 'department' && !embeddedDeptIds.has(node.id)
+                  ? nodes
+                      .filter(n => n.parentId === node.id && embeddedSubDeptIds.has(n.id))
+                      .sort((a, b) => a.order - b.order)
+                  : [];
+
+                // Effective visual children: non-dept/non-program/non-subdept direct children + hoisted programs from depts
+                const ownChildren = nodes.filter(n => n.parentId === node.id && !embeddedDeptIds.has(n.id) && !embeddedProgramIds.has(n.id) && !embeddedSubDeptIds.has(n.id));
                 const hoistedPrograms = embeddedDepts.length > 0
-                  ? nodes.filter(n => embeddedDepts.some(d => d.id === n.parentId))
+                  ? nodes.filter(n => embeddedDepts.some(d => d.id === n.parentId) && !embeddedSubDeptIds.has(n.id))
                   : [];
                 const directChildCount = ownChildren.length + hoistedPrograms.length;
                 const hasChildren = directChildCount > 0;
@@ -258,7 +290,10 @@ export function OrgChartCanvas({
                       node={node}
                       position={pos}
                       embeddedDepts={embeddedDepts}
+                      embeddedPrograms={embeddedPrograms}
                       embeddedExecs={embeddedExecs}
+                      embeddedSubDepts={embeddedSubDepts}
+                      subDeptsByParent={subDeptsByParent}
                       isSelected={selectedId === node.id}
                       isMatching={matchingIds.has(node.id)}
                       hasActiveFilter={hasActiveFilter}

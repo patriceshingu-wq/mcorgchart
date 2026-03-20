@@ -1,10 +1,14 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import type { OrgNode, NodeCategory } from '../types';
 import { SEED_NODES } from '../data/seedData';
 import { generateId, getDescendantIds } from '../lib/utils';
 
 const NODES_KEY = 'mont-carmel-orgchart-v2';
 const OLD_KEY = 'mont-carmel-org-chart-builder';
+
+// Undo/redo history configuration
+const MAX_HISTORY_SIZE = 50;
+const DEBOUNCE_MS = 300;
 
 function migrateOldData(oldData: unknown): OrgNode[] | null {
   try {
@@ -66,9 +70,68 @@ function loadNodes(): OrgNode[] {
 export function useNodes() {
   const [nodes, setNodes] = useState<OrgNode[]>(loadNodes);
 
+  // Undo/redo history
+  const [history, setHistory] = useState<OrgNode[][]>([]);
+  const [historyIndex, setHistoryIndex] = useState(-1);
+  const isUndoRedo = useRef(false);
+  const debounceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Debounced localStorage save
   useEffect(() => {
-    localStorage.setItem(NODES_KEY, JSON.stringify(nodes));
+    if (debounceTimer.current) {
+      clearTimeout(debounceTimer.current);
+    }
+    debounceTimer.current = setTimeout(() => {
+      localStorage.setItem(NODES_KEY, JSON.stringify(nodes));
+    }, DEBOUNCE_MS);
+
+    return () => {
+      if (debounceTimer.current) {
+        clearTimeout(debounceTimer.current);
+      }
+    };
   }, [nodes]);
+
+  // Track history for undo/redo (skip when undoing/redoing)
+  useEffect(() => {
+    if (isUndoRedo.current) {
+      isUndoRedo.current = false;
+      return;
+    }
+
+    setHistory(prev => {
+      // Truncate any forward history if we're not at the end
+      const newHistory = prev.slice(0, historyIndex + 1);
+      // Add current state
+      newHistory.push(nodes);
+      // Limit history size
+      if (newHistory.length > MAX_HISTORY_SIZE) {
+        newHistory.shift();
+        return newHistory;
+      }
+      return newHistory;
+    });
+    setHistoryIndex(prev => Math.min(prev + 1, MAX_HISTORY_SIZE - 1));
+  }, [nodes]);
+
+  const canUndo = historyIndex > 0;
+  const canRedo = historyIndex < history.length - 1;
+
+  const undo = useCallback(() => {
+    if (!canUndo) return;
+    isUndoRedo.current = true;
+    const newIndex = historyIndex - 1;
+    setHistoryIndex(newIndex);
+    setNodes(history[newIndex]);
+  }, [canUndo, historyIndex, history]);
+
+  const redo = useCallback(() => {
+    if (!canRedo) return;
+    isUndoRedo.current = true;
+    const newIndex = historyIndex + 1;
+    setHistoryIndex(newIndex);
+    setNodes(history[newIndex]);
+  }, [canRedo, historyIndex, history]);
 
   const addNode = useCallback((data: Omit<OrgNode, 'id' | 'order'>) => {
     setNodes(prev => {
@@ -130,5 +193,10 @@ export function useNodes() {
     expandAll,
     importNodes,
     resetToSeed,
+    // Undo/redo
+    undo,
+    redo,
+    canUndo,
+    canRedo,
   };
 }

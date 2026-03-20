@@ -20,7 +20,7 @@ interface ExportPageProps {
 
 // ── CSV helpers ────────────────────────────────────────────────────────────────
 
-const CSV_HEADERS = ['id', 'title', 'personName', 'description', 'category', 'language', 'status', 'parentId', 'order'] as const;
+const CSV_HEADERS = ['id', 'title', 'personName', 'description', 'category', 'language', 'status', 'parentId', 'order', 'isCollapsed'] as const;
 
 function csvEscape(value: string): string {
   // Wrap in quotes if value contains comma, quote, or newline
@@ -43,6 +43,7 @@ function nodesToCsv(nodes: OrgNode[]): string {
       csvEscape(node.status),
       csvEscape(node.parentId ?? ''),
       String(node.order),
+      String(node.isCollapsed ?? false),
     ];
     rows.push(row.join(','));
   }
@@ -105,6 +106,8 @@ function csvToNodes(csv: string): OrgNode[] {
   const statusIdx = idx('status');
   const parentIdIdx = idx('parentId');
   const orderIdx = idx('order');
+  // isCollapsed is optional for backwards compatibility
+  const isCollapsedIdx = headers.indexOf('isCollapsed');
 
   const validCategories = new Set(['senior-leadership', 'executive-leadership', 'ministry-system', 'department', 'program']);
   const validLanguages = new Set(['english', 'french', 'both']);
@@ -125,6 +128,10 @@ function csvToNodes(csv: string): OrgNode[] {
 
     const parentIdRaw = f[parentIdIdx]?.trim() ?? '';
 
+    // Parse isCollapsed (supports 'true', 'false', '1', '0', or empty)
+    const isCollapsedRaw = isCollapsedIdx >= 0 ? f[isCollapsedIdx]?.trim().toLowerCase() : '';
+    const isCollapsed = isCollapsedRaw === 'true' || isCollapsedRaw === '1';
+
     return {
       id,
       title,
@@ -135,9 +142,93 @@ function csvToNodes(csv: string): OrgNode[] {
       status: status as OrgNode['status'],
       parentId: parentIdRaw === '' ? null : parentIdRaw,
       order: parseInt(f[orderIdx]?.trim() ?? '0', 10) || 0,
-      isCollapsed: false,
+      isCollapsed,
     };
   });
+}
+
+// ── Validation helpers ─────────────────────────────────────────────────────────
+
+interface ValidationResult {
+  valid: boolean;
+  errors: string[];
+  warnings: string[];
+}
+
+function validateNodes(incoming: OrgNode[]): ValidationResult {
+  const errors: string[] = [];
+  const warnings: string[] = [];
+  const ids = new Set<string>();
+  const duplicateIds: string[] = [];
+
+  // Check for duplicate IDs
+  for (const node of incoming) {
+    if (ids.has(node.id)) {
+      duplicateIds.push(node.id);
+    }
+    ids.add(node.id);
+  }
+
+  if (duplicateIds.length > 0) {
+    errors.push(`Duplicate IDs found: ${duplicateIds.slice(0, 3).join(', ')}${duplicateIds.length > 3 ? ` (+${duplicateIds.length - 3} more)` : ''}`);
+  }
+
+  // Check for orphaned nodes (parent ID doesn't exist)
+  const orphanedNodes: string[] = [];
+  for (const node of incoming) {
+    if (node.parentId !== null && !ids.has(node.parentId)) {
+      orphanedNodes.push(`"${node.title}" (parent: ${node.parentId})`);
+    }
+  }
+
+  if (orphanedNodes.length > 0) {
+    errors.push(`Orphaned nodes (missing parent): ${orphanedNodes.slice(0, 3).join(', ')}${orphanedNodes.length > 3 ? ` (+${orphanedNodes.length - 3} more)` : ''}`);
+  }
+
+  // Check for circular references
+  const visited = new Set<string>();
+  const recursionStack = new Set<string>();
+  const nodeMap = new Map(incoming.map(n => [n.id, n]));
+
+  function hasCycle(nodeId: string): boolean {
+    if (recursionStack.has(nodeId)) return true;
+    if (visited.has(nodeId)) return false;
+
+    visited.add(nodeId);
+    recursionStack.add(nodeId);
+
+    const node = nodeMap.get(nodeId);
+    if (node?.parentId && nodeMap.has(node.parentId)) {
+      if (hasCycle(node.parentId)) return true;
+    }
+
+    recursionStack.delete(nodeId);
+    return false;
+  }
+
+  for (const node of incoming) {
+    if (hasCycle(node.id)) {
+      errors.push('Circular reference detected in parent relationships');
+      break;
+    }
+  }
+
+  // Warnings for potential issues
+  const nodesWithoutTitle = incoming.filter(n => !n.title.trim()).length;
+  if (nodesWithoutTitle > 0) {
+    warnings.push(`${nodesWithoutTitle} node(s) have empty titles`);
+  }
+
+  const rootNodes = incoming.filter(n => n.parentId === null);
+  if (rootNodes.length === 0 && incoming.length > 0) {
+    warnings.push('No root nodes found - chart may not display correctly');
+  }
+
+  return {
+    valid: errors.length === 0,
+    errors,
+    warnings,
+  };
 }
 
 // ── Component ──────────────────────────────────────────────────────────────────
@@ -146,7 +237,12 @@ export function ExportPage({ nodes, settings, t, onImportNodes }: ExportPageProp
   const { showToast } = useToast();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const csvInputRef = useRef<HTMLInputElement>(null);
-  const [importConfirm, setImportConfirm] = useState<{ open: boolean; data: OrgNode[] | null; settings?: AppSettings }>({ open: false, data: null });
+  const [importConfirm, setImportConfirm] = useState<{
+    open: boolean;
+    data: OrgNode[] | null;
+    settings?: AppSettings;
+    validation?: ValidationResult;
+  }>({ open: false, data: null });
 
   function handleExportJson() {
     const date = formatExportDate();
@@ -182,7 +278,8 @@ export function ExportPage({ nodes, settings, t, onImportNodes }: ExportPageProp
           return;
         }
         const importedSettings = parsed.settings as AppSettings | undefined;
-        setImportConfirm({ open: true, data: incoming as OrgNode[], settings: importedSettings });
+        const validation = validateNodes(incoming as OrgNode[]);
+        setImportConfirm({ open: true, data: incoming as OrgNode[], settings: importedSettings, validation });
       } catch {
         showToast(t.importError, 'error');
       }
@@ -198,7 +295,8 @@ export function ExportPage({ nodes, settings, t, onImportNodes }: ExportPageProp
     reader.onload = ev => {
       try {
         const incoming = csvToNodes(ev.target?.result as string);
-        setImportConfirm({ open: true, data: incoming });
+        const validation = validateNodes(incoming);
+        setImportConfirm({ open: true, data: incoming, validation });
       } catch (err) {
         showToast(err instanceof Error ? err.message : t.importError, 'error');
       }
@@ -215,12 +313,6 @@ export function ExportPage({ nodes, settings, t, onImportNodes }: ExportPageProp
 
   return (
     <div className="flex-1 overflow-auto p-6">
-      {/* Print header (hidden on screen) */}
-      <div id="print-header" className="hidden">
-        <h1>{settings.churchName} — {t.printHeader}</h1>
-        <p>{t.generatedOn}: {new Date().toLocaleDateString()}</p>
-      </div>
-
       <div className="max-w-2xl mx-auto space-y-4">
         <h2 className="text-xl font-semibold text-slate-900">{t.export}</h2>
 
@@ -322,13 +414,54 @@ export function ExportPage({ nodes, settings, t, onImportNodes }: ExportPageProp
       <AlertDialogRoot open={importConfirm.open} onOpenChange={open => setImportConfirm(prev => ({ ...prev, open }))}>
         <AlertDialogContent>
           <AlertDialogTitle>{t.importJson}</AlertDialogTitle>
-          <AlertDialogDescription>{t.importWarning}</AlertDialogDescription>
+          <AlertDialogDescription asChild>
+            <div className="space-y-3">
+              <p>{t.importWarning}</p>
+
+              {/* Validation errors */}
+              {importConfirm.validation && importConfirm.validation.errors.length > 0 && (
+                <div className="rounded-md bg-rose-50 border border-rose-200 p-3">
+                  <p className="text-sm font-medium text-rose-800 mb-1">Errors (import blocked):</p>
+                  <ul className="text-sm text-rose-700 list-disc list-inside space-y-0.5">
+                    {importConfirm.validation.errors.map((err, i) => (
+                      <li key={i}>{err}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+
+              {/* Validation warnings */}
+              {importConfirm.validation && importConfirm.validation.warnings.length > 0 && (
+                <div className="rounded-md bg-amber-50 border border-amber-200 p-3">
+                  <p className="text-sm font-medium text-amber-800 mb-1">Warnings:</p>
+                  <ul className="text-sm text-amber-700 list-disc list-inside space-y-0.5">
+                    {importConfirm.validation.warnings.map((warn, i) => (
+                      <li key={i}>{warn}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+
+              {/* Node count summary */}
+              {importConfirm.data && (
+                <p className="text-sm text-slate-500">
+                  {importConfirm.data.length} node(s) will be imported.
+                </p>
+              )}
+            </div>
+          </AlertDialogDescription>
           <AlertDialogFooter>
             <AlertDialogCancel asChild>
               <Button variant="outline" size="sm">{t.cancel}</Button>
             </AlertDialogCancel>
             <AlertDialogAction asChild>
-              <Button size="sm" onClick={confirmImport}>{t.importConfirm}</Button>
+              <Button
+                size="sm"
+                onClick={confirmImport}
+                disabled={importConfirm.validation && !importConfirm.validation.valid}
+              >
+                {t.importConfirm}
+              </Button>
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

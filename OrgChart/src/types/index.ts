@@ -40,6 +40,7 @@ export interface FilterState {
   category: NodeCategory | '';
   language: 'english' | 'french' | 'both' | '';
   status: 'active' | 'vacant' | 'inactive' | '';
+  includeSiblings?: boolean;
 }
 
 export const CATEGORY_COLORS: Record<NodeCategory, string> = {
@@ -57,8 +58,16 @@ export const SENIOR_PASTORS_PALETTE = {
   border: '#713f12',  // dark amber border
 };
 
+// Resident Pastor palette (teal — bridge between senior leadership and exec team)
+export const RESIDENT_PASTOR_PALETTE = {
+  accent: '#14B8A6',  // teal
+  bg: '#042f2e',      // very dark teal
+  border: '#0f766e',  // dark teal border
+};
+
 // Per-ministry color palettes keyed by node ID
 export const MINISTRY_PALETTES: Record<string, { accent: string; bg: string; border: string }> = {
+  'cw-001': { accent: '#A855F7', bg: '#3b0764', border: '#6b21a8' }, // purple  – Church-Wide Initiatives
   'we-001': { accent: '#EC4899', bg: '#500724', border: '#9d174d' }, // rose    – Worship Experience
   'as-001': { accent: '#F59E0B', bg: '#451a03', border: '#92400e' }, // amber   – Connections
   'ds-001': { accent: '#8B5CF6', bg: '#2e1065', border: '#5b21b6' }, // violet  – Discipleship

@@ -3,6 +3,7 @@ import { Search, Plus, ChevronLeft, ChevronRight } from 'lucide-react';
 import { Button } from '../ui/Button';
 import { Input } from '../ui/Input';
 import { Select, SelectItem } from '../ui/Select';
+import { Switch } from '../ui/Switch';
 import type { FilterState, OrgNode } from '../../types';
 import type { TranslationKeys } from '../../data/translations';
 import { cn } from '../../lib/utils';
@@ -21,7 +22,7 @@ export function Sidebar({ nodes, filters, onFiltersChange, onAddNode, isCollapse
   const hasFilters = !!(filters.search || filters.category || filters.language || filters.status);
 
   function clearFilters() {
-    onFiltersChange({ search: '', category: '', language: '', status: '' });
+    onFiltersChange({ search: '', category: '', language: '', status: '', includeSiblings: false });
   }
 
   if (isCollapsed) {
@@ -113,6 +114,20 @@ export function Sidebar({ nodes, filters, onFiltersChange, onAddNode, isCollapse
           <SelectItem value="inactive">{t.inactive}</SelectItem>
         </Select>
       </div>
+
+      {/* Include siblings option */}
+      {hasFilters && (
+        <div className="flex items-center justify-between gap-2">
+          <label htmlFor="include-siblings" className="text-xs text-slate-600 cursor-pointer">
+            {t.includeSiblings}
+          </label>
+          <Switch
+            id="include-siblings"
+            checked={filters.includeSiblings ?? false}
+            onCheckedChange={checked => onFiltersChange({ ...filters, includeSiblings: checked })}
+          />
+        </div>
+      )}
 
       {/* Clear filters */}
       {hasFilters && (
