@@ -1,5 +1,5 @@
 import React from 'react';
-import { Church } from 'lucide-react';
+import { Church, Cloud, HardDrive } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import type { AppSettings, ActivePage } from '../../types';
 import type { TranslationKeys } from '../../data/translations';
@@ -9,6 +9,7 @@ interface TopBarProps {
   activePage: ActivePage;
   onPageChange: (page: ActivePage) => void;
   onLanguageChange: (lang: 'en' | 'fr') => void;
+  storageMode?: 'supabase' | 'local';
   t: TranslationKeys;
 }
 
@@ -18,7 +19,7 @@ const NAV_PAGES: { key: ActivePage; labelKey: keyof TranslationKeys }[] = [
   { key: 'settings', labelKey: 'settings' },
 ];
 
-export function TopBar({ settings, activePage, onPageChange, onLanguageChange, t }: TopBarProps) {
+export function TopBar({ settings, activePage, onPageChange, onLanguageChange, storageMode, t }: TopBarProps) {
   return (
     <header className="flex h-14 items-center border-b border-slate-200 bg-white px-4 gap-4 flex-shrink-0 no-print">
       {/* Left: Church branding */}
@@ -50,7 +51,25 @@ export function TopBar({ settings, activePage, onPageChange, onLanguageChange, t
         ))}
       </nav>
 
-      {/* Right: Language toggle */}
+      {/* Right: Storage indicator + Language toggle */}
+      {storageMode && (
+        <div
+          className={cn(
+            'flex items-center gap-1.5 px-2 py-1 rounded-lg text-[10px] font-medium flex-shrink-0',
+            storageMode === 'supabase'
+              ? 'bg-emerald-50 text-emerald-700'
+              : 'bg-slate-100 text-slate-500'
+          )}
+          title={storageMode === 'supabase' ? 'Connected to cloud database' : 'Using local storage'}
+        >
+          {storageMode === 'supabase' ? (
+            <Cloud className="h-3 w-3" />
+          ) : (
+            <HardDrive className="h-3 w-3" />
+          )}
+          {storageMode === 'supabase' ? 'Cloud' : 'Local'}
+        </div>
+      )}
       <div className="flex items-center border border-slate-200 rounded-lg overflow-hidden flex-shrink-0">
         {(['en', 'fr'] as const).map(lang => (
           <button

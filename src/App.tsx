@@ -21,12 +21,14 @@ import type { ActivePage, FilterState, OrgNode, ZoomLevel, AppSettings } from '.
 const DEFAULT_FILTERS: FilterState = { search: '', category: '', language: '', status: '', includeSiblings: false };
 
 function AppContent() {
-  const { settings, updateSettings } = useSettings();
+  const { settings, updateSettings, isLoading: settingsLoading } = useSettings();
   const {
-    nodes, addNode, updateNode, deleteNode, reassignParent,
+    nodes, isLoading: nodesLoading, storageMode, addNode, updateNode, deleteNode, reassignParent,
     toggleCollapse, collapseAll, expandAll, importNodes, resetToSeed,
     undo, redo, canUndo, canRedo,
   } = useNodes();
+
+  const isLoading = settingsLoading || nodesLoading;
   const t = useTranslation(settings.language);
   const { showToast } = useToast();
 
@@ -245,6 +247,17 @@ function AppContent() {
     ? getDescendantIds(nodes, deleteDialog.node.id).length
     : 0;
 
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center h-screen bg-slate-50">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-slate-900 mx-auto mb-4"></div>
+          <p className="text-slate-600 text-sm">Loading...</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="flex flex-col h-screen bg-slate-50 overflow-hidden">
       <TopBar
@@ -252,6 +265,7 @@ function AppContent() {
         activePage={activePage}
         onPageChange={page => { setActivePage(page); setSelectedId(null); }}
         onLanguageChange={lang => updateSettings({ language: lang })}
+        storageMode={storageMode}
         t={t}
       />
 

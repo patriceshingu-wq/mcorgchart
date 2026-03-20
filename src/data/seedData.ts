@@ -823,3 +823,6 @@ export const SEED_SETTINGS: AppSettings = {
   appTitle: 'Org Chart Builder',
   language: 'en',
 };
+
+// Alias for dataService
+export const DEFAULT_SETTINGS = SEED_SETTINGS;

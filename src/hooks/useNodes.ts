@@ -1,88 +1,61 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import type { OrgNode, NodeCategory } from '../types';
+import type { OrgNode } from '../types';
 import { SEED_NODES } from '../data/seedData';
 import { generateId, getDescendantIds } from '../lib/utils';
-
-const NODES_KEY = 'mont-carmel-orgchart-v2';
-const OLD_KEY = 'mont-carmel-org-chart-builder';
+import {
+  loadNodes as loadNodesFromService,
+  saveNodes as saveNodesToService,
+  resetToSeedData,
+  getStorageMode,
+} from '../lib/dataService';
 
 // Undo/redo history configuration
 const MAX_HISTORY_SIZE = 50;
-const DEBOUNCE_MS = 300;
-
-function migrateOldData(oldData: unknown): OrgNode[] | null {
-  try {
-    const state = oldData as { nodes?: unknown[] };
-    if (!state?.nodes || !Array.isArray(state.nodes)) return null;
-
-    const categoryMap: Record<string, NodeCategory> = {
-      'Senior Leadership': 'senior-leadership',
-      'Executive Leadership': 'executive-leadership',
-      'Ministry': 'ministry-system',
-      'Ministry System': 'ministry-system',
-      'Department': 'department',
-      'Program / Initiative': 'program',
-      'Program': 'program',
-    };
-
-    return state.nodes.map((n: unknown, i: number) => {
-      const node = n as Record<string, unknown>;
-      const lang = String(node.languageContext ?? 'both').toLowerCase() as OrgNode['language'];
-      return {
-        id: String(node.id ?? generateId()),
-        title: String(node.title ?? ''),
-        personName: String(node.personName ?? ''),
-        description: String(node.description ?? ''),
-        category: categoryMap[String(node.category ?? '')] ?? 'department',
-        language: (['english', 'french', 'both'].includes(lang) ? lang : 'both') as OrgNode['language'],
-        status: (['active', 'vacant', 'inactive'].includes(String(node.status)) ? node.status : 'active') as OrgNode['status'],
-        parentId: node.parentId != null ? String(node.parentId) : null,
-        order: typeof node.order === 'number' ? node.order : i,
-        isCollapsed: Boolean(node.collapsed ?? node.isCollapsed ?? false),
-      };
-    });
-  } catch {
-    return null;
-  }
-}
-
-function loadNodes(): OrgNode[] {
-  try {
-    // Try new key first
-    const raw = localStorage.getItem(NODES_KEY);
-    if (raw) return JSON.parse(raw) as OrgNode[];
-
-    // Try migration from old key
-    const oldRaw = localStorage.getItem(OLD_KEY);
-    if (oldRaw) {
-      const migrated = migrateOldData(JSON.parse(oldRaw));
-      if (migrated) {
-        localStorage.setItem(NODES_KEY, JSON.stringify(migrated));
-        return migrated;
-      }
-    }
-  } catch {
-    // ignore
-  }
-  return SEED_NODES;
-}
+const DEBOUNCE_MS = 500;
 
 export function useNodes() {
-  const [nodes, setNodes] = useState<OrgNode[]>(loadNodes);
+  const [nodes, setNodes] = useState<OrgNode[]>(SEED_NODES);
+  const [isLoading, setIsLoading] = useState(true);
+  const [storageMode, setStorageMode] = useState<'supabase' | 'local'>('local');
 
   // Undo/redo history
   const [history, setHistory] = useState<OrgNode[][]>([]);
   const [historyIndex, setHistoryIndex] = useState(-1);
   const isUndoRedo = useRef(false);
   const debounceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const initialLoadDone = useRef(false);
 
-  // Debounced localStorage save
+  // Load nodes on mount
   useEffect(() => {
+    async function load() {
+      try {
+        setStorageMode(getStorageMode());
+        const loaded = await loadNodesFromService();
+        setNodes(loaded);
+        initialLoadDone.current = true;
+      } catch (error) {
+        console.error('Error loading nodes:', error);
+        setNodes(SEED_NODES);
+        initialLoadDone.current = true;
+      } finally {
+        setIsLoading(false);
+      }
+    }
+    load();
+  }, []);
+
+  // Debounced save
+  useEffect(() => {
+    // Don't save during initial load
+    if (!initialLoadDone.current) return;
+
     if (debounceTimer.current) {
       clearTimeout(debounceTimer.current);
     }
     debounceTimer.current = setTimeout(() => {
-      localStorage.setItem(NODES_KEY, JSON.stringify(nodes));
+      saveNodesToService(nodes).catch(err => {
+        console.error('Error saving nodes:', err);
+      });
     }, DEBOUNCE_MS);
 
     return () => {
@@ -92,8 +65,10 @@ export function useNodes() {
     };
   }, [nodes]);
 
-  // Track history for undo/redo (skip when undoing/redoing)
+  // Track history for undo/redo (skip when undoing/redoing or during initial load)
   useEffect(() => {
+    if (!initialLoadDone.current) return;
+
     if (isUndoRedo.current) {
       isUndoRedo.current = false;
       return;
@@ -178,12 +153,20 @@ export function useNodes() {
     setNodes(incoming);
   }, []);
 
-  const resetToSeed = useCallback(() => {
-    setNodes(SEED_NODES);
+  const resetToSeed = useCallback(async () => {
+    try {
+      const seedNodes = await resetToSeedData();
+      setNodes(seedNodes);
+    } catch (error) {
+      console.error('Error resetting to seed data:', error);
+      setNodes(SEED_NODES);
+    }
   }, []);
 
   return {
     nodes,
+    isLoading,
+    storageMode,
     addNode,
     updateNode,
     deleteNode,
