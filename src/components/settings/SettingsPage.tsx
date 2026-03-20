@@ -28,6 +28,11 @@ export function SettingsPage({ settings, nodes, onUpdateSettings, t, onReset }: 
 
   function handleReset() {
     if (resetInput !== 'RESET') return;
+    // Auto-backup before reset
+    const date = formatExportDate();
+    const payload = JSON.stringify({ settings, nodes, exportedAt: new Date().toISOString() }, null, 2);
+    downloadFile(`mont-carmel-orgchart-backup-${date}.json`, payload);
+    // Then reset
     onReset();
     setResetDialogOpen(false);
     setResetInput('');
