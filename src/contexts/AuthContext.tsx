@@ -21,12 +21,30 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   async function fetchRole(userId: string) {
     if (!supabase) return;
+
     const { data } = await supabase
       .from('user_roles')
       .select('role')
       .eq('user_id', userId)
       .single();
-    setRole((data?.role as UserRole) ?? 'viewer');
+
+    if (data?.role) {
+      setRole(data.role as UserRole);
+      return;
+    }
+
+    // No role for this user — check if any roles exist at all
+    const { count } = await supabase
+      .from('user_roles')
+      .select('*', { count: 'exact', head: true });
+
+    if (count === 0) {
+      // First user ever — bootstrap as root admin
+      await supabase.from('user_roles').insert({ user_id: userId, role: 'admin' });
+      setRole('admin');
+    } else {
+      setRole('viewer');
+    }
   }
 
   useEffect(() => {
