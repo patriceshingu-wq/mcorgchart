@@ -1,5 +1,7 @@
 import React, { useState, useCallback, useEffect } from 'react';
 import { ErrorBoundary } from './components/ErrorBoundary';
+import { AuthProvider, useAuth } from './contexts/AuthContext';
+import { LoginPage } from './components/auth/LoginPage';
 import { TopBar } from './components/layout/TopBar';
 import { Sidebar } from './components/layout/Sidebar';
 import { OrgChartCanvas } from './components/orgchart/OrgChartCanvas';
@@ -438,12 +440,32 @@ function AppContent() {
   );
 }
 
-export default function App() {
+function AuthGate() {
+  const { user, loading: authLoading } = useAuth();
+
+  if (authLoading) {
+    return (
+      <div className="flex items-center justify-center h-screen bg-slate-50">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-slate-900" />
+      </div>
+    );
+  }
+
+  if (!user) return <LoginPage />;
+
   return (
     <ErrorBoundary>
       <ToastProvider>
         <AppContent />
       </ToastProvider>
     </ErrorBoundary>
+  );
+}
+
+export default function App() {
+  return (
+    <AuthProvider>
+      <AuthGate />
+    </AuthProvider>
   );
 }

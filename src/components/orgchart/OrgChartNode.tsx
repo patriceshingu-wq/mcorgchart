@@ -1,5 +1,6 @@
 import React from 'react';
 import { MoreVertical, ChevronUp } from 'lucide-react';
+import { useAuth } from '../../contexts/AuthContext';
 import {
   DropdownMenuRoot,
   DropdownMenuTrigger,
@@ -82,6 +83,8 @@ export function OrgChartNode({
   onToggleCollapse,
   t,
 }: OrgChartNodeProps) {
+  const { role } = useAuth();
+  const isAdmin = role === 'admin';
   const categoryColor = CATEGORY_COLORS[node.category];
   const statusColor = STATUS_COLORS[node.status];
   const isDimmed = hasActiveFilter && !isMatching;
@@ -161,12 +164,101 @@ export function OrgChartNode({
                 </>
               )}
             </div>
-            {/* Kebab menu */}
+            {/* Kebab menu — admin only */}
+            {isAdmin && (
+              <DropdownMenuRoot>
+                <DropdownMenuTrigger asChild>
+                  <button
+                    onClick={e => e.stopPropagation()}
+                    className="flex-shrink-0 p-1 rounded-md text-white/30 opacity-0 group-hover:opacity-100 hover:text-white hover:bg-white/10 transition-opacity focus:opacity-100 focus:outline-none"
+                    title="Options"
+                  >
+                    <MoreVertical className="h-3 w-3" />
+                  </button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem onSelect={e => { e.stopPropagation?.(); onEdit(node); }}>
+                    {t.edit}
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onSelect={e => { e.stopPropagation?.(); onAddChild(node.id); }}>
+                    {t.addChild}
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onSelect={e => { e.stopPropagation?.(); onReassign(node); }}>
+                    {t.reassignParent}
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem
+                    className="text-rose-600 data-[highlighted]:bg-rose-50"
+                    onSelect={e => { e.stopPropagation?.(); onDelete(node); }}
+                  >
+                    {t.delete}
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenuRoot>
+            )}
+          </div>
+
+          {/* Embedded list — departments and programs for ministries, executives for exec teams, sub-depts for depts */}
+          {isMinistry ? (
+            <div className="bg-black/25 rounded-b-xl overflow-hidden">
+              <EmbeddedDeptList
+                depts={embeddedDepts}
+                programs={embeddedPrograms}
+                subDeptsByParent={subDeptsByParent}
+                accentColor={activePalette?.accent}
+                onEdit={onEdit}
+                onSelect={onSelect}
+                onAddChild={onAddChild}
+                onDelete={onDelete}
+                isAdmin={isAdmin}
+              />
+            </div>
+          ) : isDeptWithSubDepts ? (
+            <div className="bg-black/25 rounded-b-xl overflow-hidden">
+              <EmbeddedDeptList
+                depts={embeddedSubDepts}
+                accentColor={activePalette?.accent}
+                onEdit={onEdit}
+                onSelect={onSelect}
+                onAddChild={onAddChild}
+                onDelete={onDelete}
+                isAdmin={isAdmin}
+              />
+            </div>
+          ) : (isExecTeam || isSeniorTeam) ? (
+            <div className="bg-black/25 rounded-b-xl overflow-hidden">
+              <EmbeddedExecList
+                execs={embeddedExecs}
+                accentColor={activePalette?.accent ?? categoryColor}
+                onEdit={onEdit}
+                onSelect={onSelect}
+                isAdmin={isAdmin}
+              />
+            </div>
+          ) : null}
+        </>
+      ) : (
+        /* ── STANDARD WHITE CARD ── */
+        <>
+          {/* Category color bar */}
+          <div
+            className="org-node-category-bar absolute left-0 top-0 bottom-0 rounded-l-xl"
+            style={{ width: 5, backgroundColor: categoryColor }}
+          />
+
+          {/* Status dot */}
+          <div
+            className="absolute top-2.5 right-8"
+            style={{ width: 8, height: 8, borderRadius: '50%', backgroundColor: statusColor, flexShrink: 0 }}
+          />
+
+          {/* Kebab menu — admin only */}
+          {isAdmin && (
             <DropdownMenuRoot>
               <DropdownMenuTrigger asChild>
                 <button
                   onClick={e => e.stopPropagation()}
-                  className="flex-shrink-0 p-1 rounded-md text-white/30 opacity-0 group-hover:opacity-100 hover:text-white hover:bg-white/10 transition-opacity focus:opacity-100 focus:outline-none"
+                  className="absolute top-1.5 right-1.5 p-1 rounded-md text-slate-400 opacity-0 group-hover:opacity-100 hover:text-slate-700 hover:bg-slate-100 transition-opacity focus:opacity-100 focus:outline-none"
                   title="Options"
                 >
                   <MoreVertical className="h-3 w-3" />
@@ -191,89 +283,7 @@ export function OrgChartNode({
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenuRoot>
-          </div>
-
-          {/* Embedded list — departments and programs for ministries, executives for exec teams, sub-depts for depts */}
-          {isMinistry ? (
-            <div className="bg-black/25 rounded-b-xl overflow-hidden">
-              <EmbeddedDeptList
-                depts={embeddedDepts}
-                programs={embeddedPrograms}
-                subDeptsByParent={subDeptsByParent}
-                accentColor={activePalette?.accent}
-                onEdit={onEdit}
-                onSelect={onSelect}
-                onAddChild={onAddChild}
-                onDelete={onDelete}
-              />
-            </div>
-          ) : isDeptWithSubDepts ? (
-            <div className="bg-black/25 rounded-b-xl overflow-hidden">
-              <EmbeddedDeptList
-                depts={embeddedSubDepts}
-                accentColor={activePalette?.accent}
-                onEdit={onEdit}
-                onSelect={onSelect}
-                onAddChild={onAddChild}
-                onDelete={onDelete}
-              />
-            </div>
-          ) : (isExecTeam || isSeniorTeam) ? (
-            <div className="bg-black/25 rounded-b-xl overflow-hidden">
-              <EmbeddedExecList
-                execs={embeddedExecs}
-                accentColor={activePalette?.accent ?? categoryColor}
-                onEdit={onEdit}
-                onSelect={onSelect}
-              />
-            </div>
-          ) : null}
-        </>
-      ) : (
-        /* ── STANDARD WHITE CARD ── */
-        <>
-          {/* Category color bar */}
-          <div
-            className="org-node-category-bar absolute left-0 top-0 bottom-0 rounded-l-xl"
-            style={{ width: 5, backgroundColor: categoryColor }}
-          />
-
-          {/* Status dot */}
-          <div
-            className="absolute top-2.5 right-8"
-            style={{ width: 8, height: 8, borderRadius: '50%', backgroundColor: statusColor, flexShrink: 0 }}
-          />
-
-          {/* Kebab menu */}
-          <DropdownMenuRoot>
-            <DropdownMenuTrigger asChild>
-              <button
-                onClick={e => e.stopPropagation()}
-                className="absolute top-1.5 right-1.5 p-1 rounded-md text-slate-400 opacity-0 group-hover:opacity-100 hover:text-slate-700 hover:bg-slate-100 transition-opacity focus:opacity-100 focus:outline-none"
-                title="Options"
-              >
-                <MoreVertical className="h-3 w-3" />
-              </button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuItem onSelect={e => { e.stopPropagation?.(); onEdit(node); }}>
-                {t.edit}
-              </DropdownMenuItem>
-              <DropdownMenuItem onSelect={e => { e.stopPropagation?.(); onAddChild(node.id); }}>
-                {t.addChild}
-              </DropdownMenuItem>
-              <DropdownMenuItem onSelect={e => { e.stopPropagation?.(); onReassign(node); }}>
-                {t.reassignParent}
-              </DropdownMenuItem>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem
-                className="text-rose-600 data-[highlighted]:bg-rose-50"
-                onSelect={e => { e.stopPropagation?.(); onDelete(node); }}
-              >
-                {t.delete}
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenuRoot>
+          )}
 
           {/* Content */}
           <div className="pl-3.5 pr-2 pt-2.5 pb-3">

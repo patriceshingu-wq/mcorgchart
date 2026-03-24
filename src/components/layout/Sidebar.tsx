@@ -7,6 +7,7 @@ import { Switch } from '../ui/Switch';
 import type { FilterState, OrgNode } from '../../types';
 import type { TranslationKeys } from '../../data/translations';
 import { cn } from '../../lib/utils';
+import { useAuth } from '../../contexts/AuthContext';
 
 interface SidebarProps {
   nodes: OrgNode[];
@@ -19,6 +20,8 @@ interface SidebarProps {
 }
 
 export function Sidebar({ nodes, filters, onFiltersChange, onAddNode, isCollapsed, onToggleCollapsed, t }: SidebarProps) {
+  const { role } = useAuth();
+  const isAdmin = role === 'admin';
   const hasFilters = !!(filters.search || filters.category || filters.language || filters.status);
 
   function clearFilters() {
@@ -35,13 +38,15 @@ export function Sidebar({ nodes, filters, onFiltersChange, onAddNode, isCollapse
         >
           <ChevronRight className="h-4 w-4" />
         </button>
-        <button
-          onClick={onAddNode}
-          className="p-2 rounded-lg bg-slate-900 text-white hover:bg-slate-800 transition-colors"
-          title={t.addNode}
-        >
-          <Plus className="h-4 w-4" />
-        </button>
+        {isAdmin && (
+          <button
+            onClick={onAddNode}
+            className="p-2 rounded-lg bg-slate-900 text-white hover:bg-slate-800 transition-colors"
+            title={t.addNode}
+          >
+            <Plus className="h-4 w-4" />
+          </button>
+        )}
       </aside>
     );
   }
@@ -140,10 +145,12 @@ export function Sidebar({ nodes, filters, onFiltersChange, onAddNode, isCollapse
       )}
 
       {/* Add Node */}
-      <Button onClick={onAddNode} className="w-full gap-2" size="sm">
-        <Plus className="h-3.5 w-3.5" />
-        {t.addNode}
-      </Button>
+      {isAdmin && (
+        <Button onClick={onAddNode} className="w-full gap-2" size="sm">
+          <Plus className="h-3.5 w-3.5" />
+          {t.addNode}
+        </Button>
+      )}
 
       {/* Node count */}
       <div className={cn('mt-auto text-xs text-slate-400 text-center')}>

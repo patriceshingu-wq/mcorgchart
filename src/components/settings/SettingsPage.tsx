@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useAuth } from '../../contexts/AuthContext';
 import { Card, CardHeader, CardTitle, CardContent } from '../ui/Card';
 import { Button } from '../ui/Button';
 import { Input } from '../ui/Input';
@@ -23,6 +24,8 @@ interface SettingsPageProps {
 
 export function SettingsPage({ settings, nodes, onUpdateSettings, t, onReset }: SettingsPageProps) {
   const { showToast } = useToast();
+  const { role } = useAuth();
+  const isAdmin = role === 'admin';
   const [resetDialogOpen, setResetDialogOpen] = useState(false);
   const [resetInput, setResetInput] = useState('');
 
@@ -60,6 +63,7 @@ export function SettingsPage({ settings, nodes, onUpdateSettings, t, onReset }: 
               <Input
                 value={settings.churchName}
                 onChange={e => onUpdateSettings({ churchName: e.target.value })}
+                disabled={!isAdmin}
               />
             </div>
             <div>
@@ -67,6 +71,7 @@ export function SettingsPage({ settings, nodes, onUpdateSettings, t, onReset }: 
               <Input
                 value={settings.appTitle}
                 onChange={e => onUpdateSettings({ appTitle: e.target.value })}
+                disabled={!isAdmin}
               />
             </div>
           </CardContent>
@@ -109,16 +114,18 @@ export function SettingsPage({ settings, nodes, onUpdateSettings, t, onReset }: 
           </CardContent>
         </Card>
 
-        {/* Reset */}
-        <Card className="border-rose-100">
-          <CardHeader><CardTitle className="text-rose-700">{t.resetData}</CardTitle></CardHeader>
-          <CardContent>
-            <p className="text-sm text-slate-500 mb-3">{t.resetWarning}</p>
-            <Button variant="destructive" size="sm" onClick={() => { setResetInput(''); setResetDialogOpen(true); }}>
-              {t.resetData}
-            </Button>
-          </CardContent>
-        </Card>
+        {/* Reset — admin only */}
+        {isAdmin && (
+          <Card className="border-rose-100">
+            <CardHeader><CardTitle className="text-rose-700">{t.resetData}</CardTitle></CardHeader>
+            <CardContent>
+              <p className="text-sm text-slate-500 mb-3">{t.resetWarning}</p>
+              <Button variant="destructive" size="sm" onClick={() => { setResetInput(''); setResetDialogOpen(true); }}>
+                {t.resetData}
+              </Button>
+            </CardContent>
+          </Card>
+        )}
       </div>
 
       {/* Reset confirm dialog */}

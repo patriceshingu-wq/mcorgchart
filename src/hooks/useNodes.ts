@@ -5,9 +5,12 @@ import { generateId, getDescendantIds } from '../lib/utils';
 import {
   loadNodes as loadNodesFromService,
   saveNodes as saveNodesToService,
+  saveNode as saveNodeToService,
+  deleteNode as deleteNodeFromService,
   resetToSeedData,
   getStorageMode,
 } from '../lib/dataService';
+import { supabase, isSupabaseConfigured } from '../lib/supabase';
 
 // Undo/redo history configuration
 const MAX_HISTORY_SIZE = 50;
@@ -25,6 +28,10 @@ export function useNodes() {
   const isUndoRedo = useRef(false);
   const debounceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const initialLoadDone = useRef(false);
+  // Track the last saved state so we can compute a diff instead of full-replacing
+  const savedNodesRef = useRef<OrgNode[]>([]);
+  // Flag to suppress saving when we're applying an incoming realtime update
+  const skipNextSave = useRef(false);
 
   // Load nodes on mount
   useEffect(() => {
@@ -34,11 +41,13 @@ export function useNodes() {
         setLoadError(null);
         const loaded = await loadNodesFromService();
         setNodes(loaded);
+        savedNodesRef.current = loaded;
         initialLoadDone.current = true;
       } catch (error) {
         console.error('Error loading nodes:', error);
         setLoadError(error instanceof Error ? error.message : 'Failed to load data');
         setNodes(SEED_NODES);
+        savedNodesRef.current = SEED_NODES;
         initialLoadDone.current = true;
       } finally {
         setIsLoading(false);
@@ -47,18 +56,107 @@ export function useNodes() {
     load();
   }, []);
 
-  // Debounced save
+  // Realtime sync: merge changes from other users without overwriting local edits in progress
   useEffect(() => {
-    // Don't save during initial load
+    if (!isSupabaseConfigured() || !supabase) return;
+
+    const channel = supabase
+      .channel('org_nodes_changes')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'org_nodes' },
+        (payload) => {
+          skipNextSave.current = true;
+          if (payload.event === 'DELETE') {
+            const deletedId = (payload.old as { id: string }).id;
+            setNodes(prev => prev.filter(n => n.id !== deletedId));
+            savedNodesRef.current = savedNodesRef.current.filter(n => n.id !== deletedId);
+          } else {
+            // INSERT or UPDATE — convert snake_case row to camelCase OrgNode
+            const row = payload.new as Record<string, unknown>;
+            const updated: OrgNode = {
+              id: row.id as string,
+              title: row.title as string,
+              personTitle: (row.person_title as string) ?? '',
+              personName: (row.person_name as string) ?? '',
+              description: (row.description as string) ?? '',
+              category: row.category as OrgNode['category'],
+              language: row.language as OrgNode['language'],
+              status: row.status as OrgNode['status'],
+              parentId: row.parent_id as string | null,
+              order: row.order as number,
+              isCollapsed: row.is_collapsed as boolean,
+              colorIndex: row.color_index != null ? (row.color_index as number) : undefined,
+            };
+            setNodes(prev => {
+              const exists = prev.findIndex(n => n.id === updated.id);
+              if (exists >= 0) {
+                const next = [...prev];
+                next[exists] = updated;
+                return next;
+              }
+              return [...prev, updated];
+            });
+            savedNodesRef.current = (() => {
+              const exists = savedNodesRef.current.findIndex(n => n.id === updated.id);
+              if (exists >= 0) {
+                const next = [...savedNodesRef.current];
+                next[exists] = updated;
+                return next;
+              }
+              return [...savedNodesRef.current, updated];
+            })();
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, []);
+
+  // Debounced diff-based save: only persist nodes that actually changed locally
+  useEffect(() => {
     if (!initialLoadDone.current) return;
+
+    // If this state update came from a realtime event, don't save it back
+    if (skipNextSave.current) {
+      skipNextSave.current = false;
+      return;
+    }
 
     if (debounceTimer.current) {
       clearTimeout(debounceTimer.current);
     }
-    debounceTimer.current = setTimeout(() => {
-      saveNodesToService(nodes).catch(err => {
-        console.error('Error saving nodes:', err);
+    debounceTimer.current = setTimeout(async () => {
+      const prev = savedNodesRef.current;
+      const prevMap = new Map(prev.map(n => [n.id, n]));
+      const currMap = new Map(nodes.map(n => [n.id, n]));
+
+      // Upsert added or changed nodes
+      const toSave = nodes.filter(n => {
+        const old = prevMap.get(n.id);
+        return !old || JSON.stringify(old) !== JSON.stringify(n);
       });
+
+      // Delete removed nodes
+      const toDelete = prev.filter(n => !currMap.has(n.id)).map(n => n.id);
+
+      try {
+        if (isSupabaseConfigured()) {
+          await Promise.all([
+            ...toSave.map(n => saveNodeToService(n)),
+            ...toDelete.map(id => deleteNodeFromService(id)),
+          ]);
+        } else {
+          // localStorage fallback: still full-replace (single user in local mode)
+          await saveNodesToService(nodes);
+        }
+        savedNodesRef.current = nodes;
+      } catch (err) {
+        console.error('Error saving nodes:', err);
+      }
     }, DEBOUNCE_MS);
 
     return () => {
@@ -152,16 +250,24 @@ export function useNodes() {
     setNodes(prev => prev.map(n => ({ ...n, isCollapsed: false })));
   }, []);
 
-  const importNodes = useCallback((incoming: OrgNode[]) => {
-    setNodes(incoming);
+  const importNodes = useCallback(async (incoming: OrgNode[]) => {
+    try {
+      await saveNodesToService(incoming);
+      savedNodesRef.current = incoming;
+      setNodes(incoming);
+    } catch (error) {
+      console.error('Error importing nodes:', error);
+    }
   }, []);
 
   const resetToSeed = useCallback(async () => {
     try {
       const seedNodes = await resetToSeedData();
+      savedNodesRef.current = seedNodes;
       setNodes(seedNodes);
     } catch (error) {
       console.error('Error resetting to seed data:', error);
+      savedNodesRef.current = SEED_NODES;
       setNodes(SEED_NODES);
     }
   }, []);

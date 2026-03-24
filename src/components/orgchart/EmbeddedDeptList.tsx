@@ -12,9 +12,10 @@ interface EmbeddedDeptListProps {
   onSelect: (id: string) => void;
   onAddChild?: (parentId: string) => void;
   onDelete?: (node: OrgNode) => void;
+  isAdmin?: boolean;
 }
 
-export function EmbeddedDeptList({ depts, programs = [], subDeptsByParent, accentColor, onEdit, onSelect, onAddChild, onDelete }: EmbeddedDeptListProps) {
+export function EmbeddedDeptList({ depts, programs = [], subDeptsByParent, accentColor, onEdit, onSelect, onAddChild, onDelete, isAdmin = true }: EmbeddedDeptListProps) {
   if (depts.length === 0 && programs.length === 0) return null;
 
   const programColor = CATEGORY_COLORS['program']; // bright green
@@ -49,21 +50,25 @@ export function EmbeddedDeptList({ depts, programs = [], subDeptsByParent, accen
                   <div className="text-[9px] text-white/50 truncate">{dept.personName}</div>
                 )}
               </div>
-              <button
-                onClick={e => { e.stopPropagation(); onEdit(dept); }}
-                className="p-0.5 rounded text-white/30 opacity-0 group-hover/row:opacity-100 hover:text-white hover:bg-white/10 transition-opacity"
-                title="Edit department"
-              >
-                <Edit2 className="h-2.5 w-2.5" />
-              </button>
-              {onAddChild && (
-                <button
-                  onClick={e => { e.stopPropagation(); onAddChild(dept.id); }}
-                  className="p-0.5 rounded text-white/30 opacity-0 group-hover/row:opacity-100 hover:text-white hover:bg-white/10 transition-opacity"
-                  title="Add sub-department"
-                >
-                  <Plus className="h-2.5 w-2.5" />
-                </button>
+              {isAdmin && (
+                <>
+                  <button
+                    onClick={e => { e.stopPropagation(); onEdit(dept); }}
+                    className="p-0.5 rounded text-white/30 opacity-0 group-hover/row:opacity-100 hover:text-white hover:bg-white/10 transition-opacity"
+                    title="Edit department"
+                  >
+                    <Edit2 className="h-2.5 w-2.5" />
+                  </button>
+                  {onAddChild && (
+                    <button
+                      onClick={e => { e.stopPropagation(); onAddChild(dept.id); }}
+                      className="p-0.5 rounded text-white/30 opacity-0 group-hover/row:opacity-100 hover:text-white hover:bg-white/10 transition-opacity"
+                      title="Add sub-department"
+                    >
+                      <Plus className="h-2.5 w-2.5" />
+                    </button>
+                  )}
+                </>
               )}
               <button
                 onClick={e => { e.stopPropagation(); onSelect(dept.id); }}
@@ -90,21 +95,25 @@ export function EmbeddedDeptList({ depts, programs = [], subDeptsByParent, accen
                     <div className="flex-1 min-w-0">
                       <div className="text-[10px] text-white/70 truncate">{subDept.title}</div>
                     </div>
-                    <button
-                      onClick={e => { e.stopPropagation(); onEdit(subDept); }}
-                      className="p-0.5 rounded text-white/30 opacity-0 group-hover/subrow:opacity-100 hover:text-white hover:bg-white/10 transition-opacity"
-                      title="Edit sub-department"
-                    >
-                      <Edit2 className="h-2 w-2" />
-                    </button>
-                    {onDelete && (
-                      <button
-                        onClick={e => { e.stopPropagation(); onDelete(subDept); }}
-                        className="p-0.5 rounded text-white/30 opacity-0 group-hover/subrow:opacity-100 hover:text-rose-400 hover:bg-white/10 transition-opacity"
-                        title="Delete sub-department"
-                      >
-                        <Trash2 className="h-2 w-2" />
-                      </button>
+                    {isAdmin && (
+                      <>
+                        <button
+                          onClick={e => { e.stopPropagation(); onEdit(subDept); }}
+                          className="p-0.5 rounded text-white/30 opacity-0 group-hover/subrow:opacity-100 hover:text-white hover:bg-white/10 transition-opacity"
+                          title="Edit sub-department"
+                        >
+                          <Edit2 className="h-2 w-2" />
+                        </button>
+                        {onDelete && (
+                          <button
+                            onClick={e => { e.stopPropagation(); onDelete(subDept); }}
+                            className="p-0.5 rounded text-white/30 opacity-0 group-hover/subrow:opacity-100 hover:text-rose-400 hover:bg-white/10 transition-opacity"
+                            title="Delete sub-department"
+                          >
+                            <Trash2 className="h-2 w-2" />
+                          </button>
+                        )}
+                      </>
                     )}
                   </div>
                 ))}
@@ -151,13 +160,15 @@ export function EmbeddedDeptList({ depts, programs = [], subDeptsByParent, accen
                   <div className="text-[9px] text-white/50 truncate">{prog.personName}</div>
                 )}
               </div>
-              <button
-                onClick={e => { e.stopPropagation(); onEdit(prog); }}
-                className="p-0.5 rounded text-white/30 opacity-0 group-hover/row:opacity-100 hover:text-white hover:bg-white/10 transition-opacity"
-                title="Edit program"
-              >
-                <Edit2 className="h-2.5 w-2.5" />
-              </button>
+              {isAdmin && (
+                <button
+                  onClick={e => { e.stopPropagation(); onEdit(prog); }}
+                  className="p-0.5 rounded text-white/30 opacity-0 group-hover/row:opacity-100 hover:text-white hover:bg-white/10 transition-opacity"
+                  title="Edit program"
+                >
+                  <Edit2 className="h-2.5 w-2.5" />
+                </button>
+              )}
               <button
                 onClick={e => { e.stopPropagation(); onSelect(prog.id); }}
                 className="p-0.5 rounded text-white/30 opacity-0 group-hover/row:opacity-100 hover:text-white hover:bg-white/10 transition-opacity"

@@ -1,4 +1,5 @@
 import React, { useRef, useState } from 'react';
+import { useAuth } from '../../contexts/AuthContext';
 import { Download, Upload, Printer, FileJson, FileSpreadsheet } from 'lucide-react';
 import { Button } from '../ui/Button';
 import { Card, CardHeader, CardTitle, CardContent } from '../ui/Card';
@@ -245,6 +246,8 @@ function validateNodes(incoming: OrgNode[]): ValidationResult {
 
 export function ExportPage({ nodes, settings, t, onImportNodes }: ExportPageProps) {
   const { showToast } = useToast();
+  const { role } = useAuth();
+  const isAdmin = role === 'admin';
   const fileInputRef = useRef<HTMLInputElement>(null);
   const csvInputRef = useRef<HTMLInputElement>(null);
   const [importConfirm, setImportConfirm] = useState<{
@@ -380,44 +383,50 @@ export function ExportPage({ nodes, settings, t, onImportNodes }: ExportPageProp
                 <Download className="h-3.5 w-3.5" />
                 Export CSV
               </Button>
-              <input
-                ref={csvInputRef}
-                type="file"
-                accept=".csv"
-                className="hidden"
-                onChange={handleImportCsv}
-              />
-              <Button variant="outline" size="sm" onClick={() => csvInputRef.current?.click()} className="gap-2">
-                <Upload className="h-3.5 w-3.5" />
-                Import CSV
-              </Button>
+              {isAdmin && (
+                <>
+                  <input
+                    ref={csvInputRef}
+                    type="file"
+                    accept=".csv"
+                    className="hidden"
+                    onChange={handleImportCsv}
+                  />
+                  <Button variant="outline" size="sm" onClick={() => csvInputRef.current?.click()} className="gap-2">
+                    <Upload className="h-3.5 w-3.5" />
+                    Import CSV
+                  </Button>
+                </>
+              )}
             </div>
           </CardContent>
         </Card>
 
-        {/* Import JSON */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Upload className="h-4 w-4 text-slate-500" />
-              {t.importJson}
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-sm text-slate-500 mb-3">{t.importJsonDesc}</p>
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept=".json"
-              className="hidden"
-              onChange={handleImportJson}
-            />
-            <Button variant="outline" size="sm" onClick={() => fileInputRef.current?.click()} className="gap-2">
-              <Upload className="h-3.5 w-3.5" />
-              {t.importJson}
-            </Button>
-          </CardContent>
-        </Card>
+        {/* Import JSON — admin only */}
+        {isAdmin && (
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Upload className="h-4 w-4 text-slate-500" />
+                {t.importJson}
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-sm text-slate-500 mb-3">{t.importJsonDesc}</p>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept=".json"
+                className="hidden"
+                onChange={handleImportJson}
+              />
+              <Button variant="outline" size="sm" onClick={() => fileInputRef.current?.click()} className="gap-2">
+                <Upload className="h-3.5 w-3.5" />
+                {t.importJson}
+              </Button>
+            </CardContent>
+          </Card>
+        )}
       </div>
 
       {/* Import confirm dialog */}

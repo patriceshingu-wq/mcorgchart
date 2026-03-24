@@ -32,9 +32,10 @@ interface EmbeddedExecListProps {
   accentColor?: string;
   onEdit: (node: OrgNode) => void;
   onSelect: (id: string) => void;
+  isAdmin?: boolean;
 }
 
-export function EmbeddedExecList({ execs, accentColor, onEdit, onSelect }: EmbeddedExecListProps) {
+export function EmbeddedExecList({ execs, accentColor, onEdit, onSelect, isAdmin = true }: EmbeddedExecListProps) {
   if (execs.length === 0) return null;
 
   return (
@@ -75,14 +76,16 @@ export function EmbeddedExecList({ execs, accentColor, onEdit, onSelect }: Embed
               {LANGUAGE_LABELS[exec.language]}
             </span>
 
-            {/* Action buttons — visible on row hover */}
-            <button
-              onClick={e => { e.stopPropagation(); onEdit(exec); }}
-              className="p-0.5 rounded text-white/30 opacity-0 group-hover/row:opacity-100 hover:text-white hover:bg-white/10 transition-opacity"
-              title="Edit executive"
-            >
-              <Edit2 className="h-2.5 w-2.5" />
-            </button>
+            {/* Action buttons — visible on row hover, admin only */}
+            {isAdmin && (
+              <button
+                onClick={e => { e.stopPropagation(); onEdit(exec); }}
+                className="p-0.5 rounded text-white/30 opacity-0 group-hover/row:opacity-100 hover:text-white hover:bg-white/10 transition-opacity"
+                title="Edit executive"
+              >
+                <Edit2 className="h-2.5 w-2.5" />
+              </button>
+            )}
             <button
               onClick={e => { e.stopPropagation(); onSelect(exec.id); }}
               className="p-0.5 rounded text-white/30 opacity-0 group-hover/row:opacity-100 hover:text-white hover:bg-white/10 transition-opacity"

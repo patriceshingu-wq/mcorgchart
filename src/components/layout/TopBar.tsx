@@ -1,8 +1,9 @@
 import React from 'react';
-import { Church, Cloud, HardDrive } from 'lucide-react';
+import { Church, Cloud, HardDrive, LogOut } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import type { AppSettings, ActivePage } from '../../types';
 import type { TranslationKeys } from '../../data/translations';
+import { useAuth } from '../../contexts/AuthContext';
 
 interface TopBarProps {
   settings: AppSettings;
@@ -20,6 +21,10 @@ const NAV_PAGES: { key: ActivePage; labelKey: keyof TranslationKeys }[] = [
 ];
 
 export function TopBar({ settings, activePage, onPageChange, onLanguageChange, storageMode, t }: TopBarProps) {
+  const { user, role, signOut } = useAuth();
+  const avatarUrl = user?.user_metadata?.avatar_url as string | undefined;
+  const displayName = (user?.user_metadata?.full_name ?? user?.email ?? '') as string;
+
   return (
     <header className="flex h-14 items-center border-b border-slate-200 bg-white px-4 gap-4 flex-shrink-0 no-print">
       {/* Left: Church branding */}
@@ -85,6 +90,32 @@ export function TopBar({ settings, activePage, onPageChange, onLanguageChange, s
             {lang.toUpperCase()}
           </button>
         ))}
+      </div>
+
+      {/* User avatar + role + sign out */}
+      <div className="flex items-center gap-2 flex-shrink-0 pl-1 border-l border-slate-200">
+        {avatarUrl ? (
+          <img src={avatarUrl} alt={displayName} className="h-7 w-7 rounded-full object-cover" />
+        ) : (
+          <div className="h-7 w-7 rounded-full bg-slate-200 flex items-center justify-center text-[10px] font-bold text-slate-600">
+            {displayName.charAt(0).toUpperCase()}
+          </div>
+        )}
+        {role && (
+          <span className={cn(
+            'text-[10px] font-semibold px-1.5 py-0.5 rounded',
+            role === 'admin' ? 'bg-violet-100 text-violet-700' : 'bg-slate-100 text-slate-500',
+          )}>
+            {role}
+          </span>
+        )}
+        <button
+          onClick={signOut}
+          className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors"
+          title="Sign out"
+        >
+          <LogOut className="h-3.5 w-3.5" />
+        </button>
       </div>
     </header>
   );

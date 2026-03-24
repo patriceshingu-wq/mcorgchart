@@ -5,6 +5,7 @@ import type { OrgNode } from '../../types';
 import { CATEGORY_COLORS, STATUS_COLORS } from '../../types';
 import type { TranslationKeys } from '../../data/translations';
 import { cn } from '../../lib/utils';
+import { useAuth } from '../../contexts/AuthContext';
 
 type SortKey = 'title' | 'category' | 'status' | 'order';
 type SortDir = 'asc' | 'desc';
@@ -33,6 +34,8 @@ interface NodeListTableProps {
 }
 
 export function NodeListTable({ nodes, selectedId, onSelectNode, onEdit, onDelete, t }: NodeListTableProps) {
+  const { role } = useAuth();
+  const isAdmin = role === 'admin';
   const [sortKey, setSortKey] = useState<SortKey>('order');
   const [sortDir, setSortDir] = useState<SortDir>('asc');
 
@@ -91,9 +94,11 @@ export function NodeListTable({ nodes, selectedId, onSelectNode, onEdit, onDelet
             {colHead(t.language)}
             {colHead(t.status, 'status')}
             {colHead(t.reportsTo)}
-            <th className="px-4 py-3 text-right text-xs font-semibold text-slate-500 uppercase tracking-wide">
-              Actions
-            </th>
+            {isAdmin && (
+              <th className="px-4 py-3 text-right text-xs font-semibold text-slate-500 uppercase tracking-wide">
+                Actions
+              </th>
+            )}
           </tr>
         </thead>
         <tbody>
@@ -132,24 +137,26 @@ export function NodeListTable({ nodes, selectedId, onSelectNode, onEdit, onDelet
                   </span>
                 </td>
                 <td className="px-4 py-3 text-slate-500 text-xs">{parent?.title ?? '—'}</td>
-                <td className="px-4 py-3">
-                  <div className="flex items-center justify-end gap-1">
-                    <button
-                      onClick={e => { e.stopPropagation(); onEdit(node); }}
-                      className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors"
-                      title={t.edit}
-                    >
-                      <Edit2 className="h-3.5 w-3.5" />
-                    </button>
-                    <button
-                      onClick={e => { e.stopPropagation(); onDelete(node); }}
-                      className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-colors"
-                      title={t.delete}
-                    >
-                      <Trash2 className="h-3.5 w-3.5" />
-                    </button>
-                  </div>
-                </td>
+                {isAdmin && (
+                  <td className="px-4 py-3">
+                    <div className="flex items-center justify-end gap-1">
+                      <button
+                        onClick={e => { e.stopPropagation(); onEdit(node); }}
+                        className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors"
+                        title={t.edit}
+                      >
+                        <Edit2 className="h-3.5 w-3.5" />
+                      </button>
+                      <button
+                        onClick={e => { e.stopPropagation(); onDelete(node); }}
+                        className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-colors"
+                        title={t.delete}
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </button>
+                    </div>
+                  </td>
+                )}
               </tr>
             );
           })}
