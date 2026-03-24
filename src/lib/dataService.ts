@@ -246,3 +246,36 @@ export async function saveSettings(settings: AppSettings): Promise<void> {
 export function getStorageMode(): 'supabase' | 'local' {
   return isSupabaseConfigured() ? 'supabase' : 'local';
 }
+
+// ============ USER MANAGEMENT ============
+
+export interface UserRecord {
+  id: string;
+  email: string;
+  fullName: string;
+  createdAt: string;
+  lastSignInAt: string | null;
+  role: 'admin' | 'viewer';
+}
+
+export async function loadUsers(): Promise<UserRecord[]> {
+  if (!isSupabaseConfigured() || !supabase) return [];
+  const { data, error } = await supabase.rpc('get_users');
+  if (error) throw error;
+  return (data ?? []).map((row: Record<string, unknown>) => ({
+    id: row.id as string,
+    email: row.email as string,
+    fullName: (row.full_name as string) ?? '',
+    createdAt: row.created_at as string,
+    lastSignInAt: (row.last_sign_in_at as string) ?? null,
+    role: (row.role as 'admin' | 'viewer') ?? 'viewer',
+  }));
+}
+
+export async function setUserRole(userId: string, role: 'admin' | 'viewer'): Promise<void> {
+  if (!isSupabaseConfigured() || !supabase) return;
+  const { error } = await supabase
+    .from('user_roles')
+    .upsert({ user_id: userId, role }, { onConflict: 'user_id' });
+  if (error) throw error;
+}

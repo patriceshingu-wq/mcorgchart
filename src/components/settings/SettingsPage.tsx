@@ -1,5 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
+import { loadUsers, setUserRole } from '../../lib/dataService';
+import type { UserRecord } from '../../lib/dataService';
 import { Card, CardHeader, CardTitle, CardContent } from '../ui/Card';
 import { Button } from '../ui/Button';
 import { Input } from '../ui/Input';
@@ -24,10 +26,32 @@ interface SettingsPageProps {
 
 export function SettingsPage({ settings, nodes, onUpdateSettings, t, onReset }: SettingsPageProps) {
   const { showToast } = useToast();
-  const { role } = useAuth();
+  const { user, role } = useAuth();
   const isAdmin = role === 'admin';
   const [resetDialogOpen, setResetDialogOpen] = useState(false);
   const [resetInput, setResetInput] = useState('');
+
+  const [users, setUsers] = useState<UserRecord[]>([]);
+  const [usersLoading, setUsersLoading] = useState(false);
+
+  useEffect(() => {
+    if (!isAdmin) return;
+    setUsersLoading(true);
+    loadUsers()
+      .then(setUsers)
+      .catch(() => showToast('Failed to load users', 'error'))
+      .finally(() => setUsersLoading(false));
+  }, [isAdmin]);
+
+  const handleRoleChange = useCallback(async (userId: string, newRole: 'admin' | 'viewer') => {
+    try {
+      await setUserRole(userId, newRole);
+      setUsers(prev => prev.map(u => u.id === userId ? { ...u, role: newRole } : u));
+      showToast('Role updated');
+    } catch {
+      showToast('Failed to update role', 'error');
+    }
+  }, [showToast]);
 
   function handleReset() {
     if (resetInput !== 'RESET') return;
@@ -53,6 +77,52 @@ export function SettingsPage({ settings, nodes, onUpdateSettings, t, onReset }: 
     <div className="flex-1 overflow-auto p-6">
       <div className="max-w-xl mx-auto space-y-4">
         <h2 className="text-xl font-semibold text-slate-900">{t.settings}</h2>
+
+        {/* Users — admin only */}
+        {isAdmin && (
+          <Card>
+            <CardHeader><CardTitle>Users</CardTitle></CardHeader>
+            <CardContent>
+              {usersLoading ? (
+                <p className="text-sm text-slate-500">Loading…</p>
+              ) : users.length === 0 ? (
+                <p className="text-sm text-slate-400">No users found.</p>
+              ) : (
+                <div className="divide-y divide-slate-100">
+                  {users.map(u => (
+                    <div key={u.id} className="flex items-center gap-3 py-2.5">
+                      <div className="flex-1 min-w-0">
+                        <div className="text-sm font-medium text-slate-900 truncate">{u.email}</div>
+                        {u.fullName && (
+                          <div className="text-xs text-slate-500 truncate">{u.fullName}</div>
+                        )}
+                        {u.lastSignInAt && (
+                          <div className="text-[10px] text-slate-400 mt-0.5">
+                            Last sign-in: {new Date(u.lastSignInAt).toLocaleDateString()}
+                          </div>
+                        )}
+                      </div>
+                      {u.id === user?.id ? (
+                        <span className="text-[11px] px-2 py-1 rounded-md bg-violet-100 text-violet-700 font-semibold flex-shrink-0">
+                          {u.role} (you)
+                        </span>
+                      ) : (
+                        <select
+                          value={u.role}
+                          onChange={e => handleRoleChange(u.id, e.target.value as 'admin' | 'viewer')}
+                          className="text-xs border border-slate-200 rounded-md px-2 py-1 bg-white text-slate-700 focus:outline-none focus:ring-2 focus:ring-slate-900 flex-shrink-0"
+                        >
+                          <option value="admin">admin</option>
+                          <option value="viewer">viewer</option>
+                        </select>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        )}
 
         {/* Church info */}
         <Card>
