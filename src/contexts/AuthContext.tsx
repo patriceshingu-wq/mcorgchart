@@ -53,15 +53,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       return;
     }
 
+    // Get initial session immediately
+    supabase.auth.getSession().then(async ({ data: { session } }) => {
+      setUser(session?.user ?? null);
+      if (session?.user) {
+        await fetchRole(session.user.id);
+      }
+      setLoading(false);
+    });
+
+    // Listen for subsequent auth changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       setUser(session?.user ?? null);
       if (session?.user) {
         await fetchRole(session.user.id);
       } else {
         setRole(null);
-      }
-      if (event === 'INITIAL_SESSION') {
-        setLoading(false);
       }
     });
 
