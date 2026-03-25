@@ -43,9 +43,14 @@ export function useNodes() {
         setNodes(loaded);
         savedNodesRef.current = loaded;
         initialLoadDone.current = true;
-      } catch (error) {
+      } catch (error: unknown) {
         console.error('Error loading nodes:', error);
-        setLoadError(error instanceof Error ? error.message : 'Failed to load data');
+        const message = error instanceof Error
+          ? error.message
+          : typeof error === 'object' && error !== null && 'message' in error
+            ? String((error as { message: unknown }).message)
+            : JSON.stringify(error);
+        setLoadError(message || 'Failed to load data');
         setNodes(SEED_NODES);
         savedNodesRef.current = SEED_NODES;
         initialLoadDone.current = true;
