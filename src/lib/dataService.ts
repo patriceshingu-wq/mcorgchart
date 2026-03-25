@@ -268,11 +268,13 @@ async function callManageUsers(action: string, params: Record<string, unknown> =
   }
 
   const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+  const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
   const response = await fetch(`${supabaseUrl}/functions/v1/manage-users`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
       'Authorization': `Bearer ${session.access_token}`,
+      'apikey': supabaseAnonKey,
     },
     body: JSON.stringify({ action, ...params }),
   });
