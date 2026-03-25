@@ -247,3 +247,57 @@ export function getStorageMode(): 'supabase' | 'local' {
   return isSupabaseConfigured() ? 'supabase' : 'local';
 }
 
+// ============ USER MANAGEMENT (via Edge Function) ============
+
+export interface UserRecord {
+  id: string;
+  email: string;
+  role: 'admin' | 'viewer';
+  createdAt: string;
+  lastSignInAt: string | null;
+}
+
+async function callManageUsers(action: string, params: Record<string, unknown> = {}) {
+  if (!isSupabaseConfigured() || !supabase) {
+    throw new Error('Supabase not configured');
+  }
+
+  const { data: { session } } = await supabase.auth.getSession();
+  if (!session) {
+    throw new Error('Not authenticated');
+  }
+
+  const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+  const response = await fetch(`${supabaseUrl}/functions/v1/manage-users`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${session.access_token}`,
+    },
+    body: JSON.stringify({ action, ...params }),
+  });
+
+  const data = await response.json();
+  if (!response.ok) {
+    throw new Error(data.error || 'Request failed');
+  }
+  return data;
+}
+
+export async function loadUsers(): Promise<UserRecord[]> {
+  const { users } = await callManageUsers('list');
+  return users;
+}
+
+export async function setUserRole(userId: string, role: 'admin' | 'viewer'): Promise<void> {
+  await callManageUsers('setRole', { userId, role });
+}
+
+export async function inviteUser(email: string, role: 'admin' | 'viewer' = 'viewer'): Promise<{ resetLink: string | null }> {
+  return await callManageUsers('invite', { email, role });
+}
+
+export async function deleteUser(userId: string): Promise<void> {
+  await callManageUsers('delete', { userId });
+}
+
