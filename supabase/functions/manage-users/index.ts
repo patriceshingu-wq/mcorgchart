@@ -9,12 +9,11 @@ const supabaseAdmin = createClient(supabaseUrl, serviceRoleKey, {
   auth: { autoRefreshToken: false, persistSession: false }
 })
 
-// Regular client for verifying the caller's JWT
-function getCallerClient(authHeader: string) {
-  return createClient(supabaseUrl, Deno.env.get('SUPABASE_ANON_KEY')!, {
-    global: { headers: { Authorization: authHeader } },
-    auth: { autoRefreshToken: false, persistSession: false }
-  })
+// Verify caller's JWT using the admin client
+async function verifyUser(authHeader: string) {
+  const token = authHeader.replace('Bearer ', '')
+  const { data: { user }, error } = await supabaseAdmin.auth.getUser(token)
+  return { user, error }
 }
 
 Deno.serve(async (req) => {
@@ -33,8 +32,7 @@ Deno.serve(async (req) => {
       })
     }
 
-    const callerClient = getCallerClient(authHeader)
-    const { data: { user: caller }, error: authError } = await callerClient.auth.getUser()
+    const { user: caller, error: authError } = await verifyUser(authHeader)
 
     if (authError || !caller) {
       return new Response(JSON.stringify({ error: 'Invalid token' }), {
