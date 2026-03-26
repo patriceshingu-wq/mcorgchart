@@ -1,18 +1,12 @@
-import React, { useState } from 'react';
-import { Edit2, Trash2, ArrowUp, ArrowDown, ArrowUpDown } from 'lucide-react';
+import { useState, useMemo } from 'react';
+import { Edit2, Trash2, ChevronRight, ChevronDown } from 'lucide-react';
 import { Badge } from '../ui/Badge';
 import type { OrgNode } from '../../types';
 import { CATEGORY_COLORS, STATUS_COLORS } from '../../types';
 import type { TranslationKeys } from '../../data/translations';
-import { cn } from '../../lib/utils';
+import { cn, getChildren } from '../../lib/utils';
 import { useAuth } from '../../contexts/AuthContext';
 
-type SortKey = 'title' | 'category' | 'status' | 'order';
-type SortDir = 'asc' | 'desc';
-
-const LANG_LABELS: Record<OrgNode['language'], string> = {
-  english: 'EN', french: 'FR', both: 'EN/FR',
-};
 const CATEGORY_LABEL_KEYS: Record<OrgNode['category'], keyof TranslationKeys> = {
   'senior-leadership': 'seniorLeadership',
   'executive-leadership': 'executiveLeadership',
@@ -23,6 +17,35 @@ const CATEGORY_LABEL_KEYS: Record<OrgNode['category'], keyof TranslationKeys> = 
 const STATUS_LABEL_KEYS: Record<OrgNode['status'], keyof TranslationKeys> = {
   active: 'active', vacant: 'vacant', inactive: 'inactive',
 };
+
+interface TreeRow {
+  node: OrgNode;
+  depth: number;
+  hasChildren: boolean;
+}
+
+function buildTreeRows(
+  nodes: OrgNode[],
+  parentId: string | null,
+  depth: number,
+  collapsedIds: Set<string>
+): TreeRow[] {
+  const children = getChildren(nodes, parentId);
+  const rows: TreeRow[] = [];
+
+  for (const node of children) {
+    const nodeChildren = getChildren(nodes, node.id);
+    const hasChildren = nodeChildren.length > 0;
+    rows.push({ node, depth, hasChildren });
+
+    // Only recurse if this node is not collapsed
+    if (hasChildren && !collapsedIds.has(node.id)) {
+      rows.push(...buildTreeRows(nodes, node.id, depth + 1, collapsedIds));
+    }
+  }
+
+  return rows;
+}
 
 interface NodeListTableProps {
   nodes: OrgNode[];
@@ -36,46 +59,27 @@ interface NodeListTableProps {
 export function NodeListTable({ nodes, selectedId, onSelectNode, onEdit, onDelete, t }: NodeListTableProps) {
   const { role } = useAuth();
   const isAdmin = role === 'admin';
-  const [sortKey, setSortKey] = useState<SortKey>('order');
-  const [sortDir, setSortDir] = useState<SortDir>('asc');
+  const [collapsedIds, setCollapsedIds] = useState<Set<string>>(new Set());
 
-  function handleSort(key: SortKey) {
-    if (sortKey === key) setSortDir(d => d === 'asc' ? 'desc' : 'asc');
-    else { setSortKey(key); setSortDir('asc'); }
-  }
-
-  const sorted = [...nodes].sort((a, b) => {
-    let cmp = 0;
-    if (sortKey === 'title') cmp = a.title.localeCompare(b.title);
-    else if (sortKey === 'category') cmp = a.category.localeCompare(b.category);
-    else if (sortKey === 'status') cmp = a.status.localeCompare(b.status);
-    else cmp = a.order - b.order;
-    return sortDir === 'asc' ? cmp : -cmp;
-  });
-
-  function SortIcon({ col }: { col: SortKey }) {
-    if (sortKey !== col) return <ArrowUpDown className="h-3 w-3 text-slate-300" />;
-    return sortDir === 'asc'
-      ? <ArrowUp className="h-3 w-3 text-slate-700" />
-      : <ArrowDown className="h-3 w-3 text-slate-700" />;
-  }
-
-  const colHead = (label: string, key?: SortKey) => (
-    <th
-      className={cn(
-        'px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wide whitespace-nowrap',
-        key && 'cursor-pointer hover:text-slate-900 select-none',
-      )}
-      onClick={() => key && handleSort(key)}
-    >
-      <div className="flex items-center gap-1">
-        {label}
-        {key && <SortIcon col={key} />}
-      </div>
-    </th>
+  const treeRows = useMemo(
+    () => buildTreeRows(nodes, null, 0, collapsedIds),
+    [nodes, collapsedIds]
   );
 
-  if (sorted.length === 0) {
+  function toggleCollapse(nodeId: string, e: React.MouseEvent) {
+    e.stopPropagation();
+    setCollapsedIds(prev => {
+      const next = new Set(prev);
+      if (next.has(nodeId)) {
+        next.delete(nodeId);
+      } else {
+        next.add(nodeId);
+      }
+      return next;
+    });
+  }
+
+  if (treeRows.length === 0) {
     return (
       <div className="flex items-center justify-center h-full text-slate-400">
         <p className="text-sm">{t.noResults}</p>
@@ -88,12 +92,18 @@ export function NodeListTable({ nodes, selectedId, onSelectNode, onEdit, onDelet
       <table className="w-full text-sm border-collapse">
         <thead className="sticky top-0 bg-white border-b border-slate-200 z-10">
           <tr>
-            {colHead(t.title, 'title')}
-            {colHead(t.personName)}
-            {colHead(t.category, 'category')}
-            {colHead(t.language)}
-            {colHead(t.status, 'status')}
-            {colHead(t.reportsTo)}
+            <th className="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wide">
+              {t.title}
+            </th>
+            <th className="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wide">
+              {t.personName}
+            </th>
+            <th className="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wide">
+              {t.category}
+            </th>
+            <th className="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wide">
+              {t.status}
+            </th>
             {isAdmin && (
               <th className="px-4 py-3 text-right text-xs font-semibold text-slate-500 uppercase tracking-wide">
                 Actions
@@ -102,41 +112,83 @@ export function NodeListTable({ nodes, selectedId, onSelectNode, onEdit, onDelet
           </tr>
         </thead>
         <tbody>
-          {sorted.map(node => {
-            const parent = nodes.find(n => n.id === node.parentId);
+          {treeRows.map(({ node, depth, hasChildren }) => {
             const catColor = CATEGORY_COLORS[node.category];
             const statusColor = STATUS_COLORS[node.status];
+            const isCollapsed = collapsedIds.has(node.id);
+
             return (
               <tr
                 key={node.id}
                 onClick={() => onSelectNode(node.id)}
                 className={cn(
                   'border-b border-slate-100 cursor-pointer transition-colors hover:bg-slate-50',
-                  selectedId === node.id && 'bg-slate-50',
+                  selectedId === node.id && 'bg-slate-100',
                 )}
               >
                 <td className="px-4 py-3">
-                  <div className="flex items-center gap-2">
-                    <div style={{ width: 4, height: 20, borderRadius: 2, backgroundColor: catColor, flexShrink: 0 }} />
-                    <span className="font-medium text-slate-900 line-clamp-1">{node.title}</span>
+                  <div
+                    className="flex items-center gap-1"
+                    style={{ paddingLeft: depth * 24 }}
+                  >
+                    {/* Collapse/Expand button */}
+                    {hasChildren ? (
+                      <button
+                        onClick={(e) => toggleCollapse(node.id, e)}
+                        className="p-0.5 rounded hover:bg-slate-200 transition-colors flex-shrink-0"
+                      >
+                        {isCollapsed ? (
+                          <ChevronRight className="h-4 w-4 text-slate-500" />
+                        ) : (
+                          <ChevronDown className="h-4 w-4 text-slate-500" />
+                        )}
+                      </button>
+                    ) : (
+                      <span className="w-5 flex-shrink-0" /> // Spacer for alignment
+                    )}
+
+                    {/* Category color bar */}
+                    <div
+                      style={{
+                        width: 4,
+                        height: 20,
+                        borderRadius: 2,
+                        backgroundColor: catColor,
+                        flexShrink: 0
+                      }}
+                    />
+
+                    {/* Title */}
+                    <span className="font-medium text-slate-900 line-clamp-1">
+                      {node.title}
+                    </span>
                   </div>
                 </td>
-                <td className="px-4 py-3 text-slate-500 truncate max-w-[150px]">{node.personName || '—'}</td>
+
+                <td className="px-4 py-3 text-slate-500 truncate max-w-[150px]">
+                  {node.personName || '—'}
+                </td>
+
                 <td className="px-4 py-3">
                   <Badge variant="secondary" style={{ borderLeft: `3px solid ${catColor}` }}>
                     {t[CATEGORY_LABEL_KEYS[node.category]] as string}
                   </Badge>
                 </td>
-                <td className="px-4 py-3">
-                  <Badge variant="secondary">{LANG_LABELS[node.language]}</Badge>
-                </td>
+
                 <td className="px-4 py-3">
                   <span className="inline-flex items-center gap-1.5 text-xs">
-                    <span style={{ width: 6, height: 6, borderRadius: '50%', backgroundColor: statusColor }} />
+                    <span
+                      style={{
+                        width: 6,
+                        height: 6,
+                        borderRadius: '50%',
+                        backgroundColor: statusColor
+                      }}
+                    />
                     {t[STATUS_LABEL_KEYS[node.status]] as string}
                   </span>
                 </td>
-                <td className="px-4 py-3 text-slate-500 text-xs">{parent?.title ?? '—'}</td>
+
                 {isAdmin && (
                   <td className="px-4 py-3">
                     <div className="flex items-center justify-end gap-1">

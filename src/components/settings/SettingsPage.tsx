@@ -1,6 +1,6 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
-import { loadUsers, setUserRole } from '../../lib/dataService';
+import { loadUsers, setUserRole, inviteUser, deleteUser } from '../../lib/dataService';
 import type { UserRecord } from '../../lib/dataService';
 import { Card, CardHeader, CardTitle, CardContent } from '../ui/Card';
 import { Button } from '../ui/Button';
@@ -10,7 +10,7 @@ import {
   AlertDialogDescription, AlertDialogFooter, AlertDialogCancel, AlertDialogAction,
 } from '../ui/AlertDialog';
 import { useToast } from '../ui/Toast';
-import { Download } from 'lucide-react';
+import { Download, UserPlus, Trash2 } from 'lucide-react';
 import type { AppSettings } from '../../types';
 import type { TranslationKeys } from '../../data/translations';
 import { downloadFile, formatExportDate } from '../../lib/utils';
@@ -31,17 +31,30 @@ export function SettingsPage({ settings, nodes, onUpdateSettings, t, onReset }: 
   const [resetDialogOpen, setResetDialogOpen] = useState(false);
   const [resetInput, setResetInput] = useState('');
 
+  // User management state
   const [users, setUsers] = useState<UserRecord[]>([]);
   const [usersLoading, setUsersLoading] = useState(false);
+  const [inviteEmail, setInviteEmail] = useState('');
+  const [inviteRole, setInviteRole] = useState<'admin' | 'viewer'>('viewer');
+  const [inviting, setInviting] = useState(false);
+  const [deleteConfirm, setDeleteConfirm] = useState<UserRecord | null>(null);
 
-  useEffect(() => {
+  const fetchUsers = useCallback(async () => {
     if (!isAdmin) return;
     setUsersLoading(true);
-    loadUsers()
-      .then(setUsers)
-      .catch(() => showToast('Failed to load users', 'error'))
-      .finally(() => setUsersLoading(false));
-  }, [isAdmin]);
+    try {
+      const data = await loadUsers();
+      setUsers(data);
+    } catch (err) {
+      showToast('Failed to load users', 'error');
+    } finally {
+      setUsersLoading(false);
+    }
+  }, [isAdmin, showToast]);
+
+  useEffect(() => {
+    fetchUsers();
+  }, [fetchUsers]);
 
   const handleRoleChange = useCallback(async (userId: string, newRole: 'admin' | 'viewer') => {
     try {
@@ -52,6 +65,38 @@ export function SettingsPage({ settings, nodes, onUpdateSettings, t, onReset }: 
       showToast('Failed to update role', 'error');
     }
   }, [showToast]);
+
+  const handleInvite = useCallback(async () => {
+    if (!inviteEmail.trim()) return;
+    setInviting(true);
+    try {
+      const { resetLink } = await inviteUser(inviteEmail.trim(), inviteRole);
+      showToast('User invited');
+      setInviteEmail('');
+      fetchUsers();
+      if (resetLink) {
+        await navigator.clipboard.writeText(resetLink);
+        showToast('Password reset link copied to clipboard');
+      }
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : 'Failed to invite user', 'error');
+    } finally {
+      setInviting(false);
+    }
+  }, [inviteEmail, inviteRole, fetchUsers, showToast]);
+
+  const handleDelete = useCallback(async () => {
+    if (!deleteConfirm) return;
+    try {
+      await deleteUser(deleteConfirm.id);
+      setUsers(prev => prev.filter(u => u.id !== deleteConfirm.id));
+      showToast('User deleted');
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : 'Failed to delete user', 'error');
+    } finally {
+      setDeleteConfirm(null);
+    }
+  }, [deleteConfirm, showToast]);
 
   function handleReset() {
     if (resetInput !== 'RESET') return;
@@ -82,9 +127,38 @@ export function SettingsPage({ settings, nodes, onUpdateSettings, t, onReset }: 
         {isAdmin && (
           <Card>
             <CardHeader><CardTitle>Users</CardTitle></CardHeader>
-            <CardContent>
+            <CardContent className="space-y-4">
+              {/* Invite form */}
+              <div className="flex gap-2">
+                <Input
+                  type="email"
+                  placeholder="Email address"
+                  value={inviteEmail}
+                  onChange={e => setInviteEmail(e.target.value)}
+                  className="flex-1"
+                />
+                <select
+                  value={inviteRole}
+                  onChange={e => setInviteRole(e.target.value as 'admin' | 'viewer')}
+                  className="text-xs border border-slate-200 rounded-md px-2 py-1 bg-white text-slate-700"
+                >
+                  <option value="viewer">viewer</option>
+                  <option value="admin">admin</option>
+                </select>
+                <Button
+                  size="sm"
+                  onClick={handleInvite}
+                  disabled={inviting || !inviteEmail.trim()}
+                  className="gap-1"
+                >
+                  <UserPlus className="h-3.5 w-3.5" />
+                  {inviting ? 'Inviting...' : 'Invite'}
+                </Button>
+              </div>
+
+              {/* User list */}
               {usersLoading ? (
-                <p className="text-sm text-slate-500">Loading…</p>
+                <p className="text-sm text-slate-500">Loading...</p>
               ) : users.length === 0 ? (
                 <p className="text-sm text-slate-400">No users found.</p>
               ) : (
@@ -93,9 +167,6 @@ export function SettingsPage({ settings, nodes, onUpdateSettings, t, onReset }: 
                     <div key={u.id} className="flex items-center gap-3 py-2.5">
                       <div className="flex-1 min-w-0">
                         <div className="text-sm font-medium text-slate-900 truncate">{u.email}</div>
-                        {u.fullName && (
-                          <div className="text-xs text-slate-500 truncate">{u.fullName}</div>
-                        )}
                         {u.lastSignInAt && (
                           <div className="text-[10px] text-slate-400 mt-0.5">
                             Last sign-in: {new Date(u.lastSignInAt).toLocaleDateString()}
@@ -107,14 +178,23 @@ export function SettingsPage({ settings, nodes, onUpdateSettings, t, onReset }: 
                           {u.role} (you)
                         </span>
                       ) : (
-                        <select
-                          value={u.role}
-                          onChange={e => handleRoleChange(u.id, e.target.value as 'admin' | 'viewer')}
-                          className="text-xs border border-slate-200 rounded-md px-2 py-1 bg-white text-slate-700 focus:outline-none focus:ring-2 focus:ring-slate-900 flex-shrink-0"
-                        >
-                          <option value="admin">admin</option>
-                          <option value="viewer">viewer</option>
-                        </select>
+                        <>
+                          <select
+                            value={u.role}
+                            onChange={e => handleRoleChange(u.id, e.target.value as 'admin' | 'viewer')}
+                            className="text-xs border border-slate-200 rounded-md px-2 py-1 bg-white text-slate-700"
+                          >
+                            <option value="admin">admin</option>
+                            <option value="viewer">viewer</option>
+                          </select>
+                          <button
+                            onClick={() => setDeleteConfirm(u)}
+                            className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded transition-colors"
+                            title="Delete user"
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </button>
+                        </>
                       )}
                     </div>
                   ))}
@@ -222,6 +302,26 @@ export function SettingsPage({ settings, nodes, onUpdateSettings, t, onReset }: 
                 onClick={handleReset}
               >
                 {t.resetConfirm}
+              </Button>
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialogRoot>
+
+      {/* Delete user confirm dialog */}
+      <AlertDialogRoot open={!!deleteConfirm} onOpenChange={open => { if (!open) setDeleteConfirm(null); }}>
+        <AlertDialogContent>
+          <AlertDialogTitle>Delete User</AlertDialogTitle>
+          <AlertDialogDescription>
+            Are you sure you want to delete <strong>{deleteConfirm?.email}</strong>? This action cannot be undone.
+          </AlertDialogDescription>
+          <AlertDialogFooter>
+            <AlertDialogCancel asChild>
+              <Button variant="outline" size="sm">Cancel</Button>
+            </AlertDialogCancel>
+            <AlertDialogAction asChild>
+              <Button variant="destructive" size="sm" onClick={handleDelete}>
+                Delete
               </Button>
             </AlertDialogAction>
           </AlertDialogFooter>

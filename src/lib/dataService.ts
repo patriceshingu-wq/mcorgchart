@@ -247,35 +247,59 @@ export function getStorageMode(): 'supabase' | 'local' {
   return isSupabaseConfigured() ? 'supabase' : 'local';
 }
 
-// ============ USER MANAGEMENT ============
+// ============ USER MANAGEMENT (via Edge Function) ============
 
 export interface UserRecord {
   id: string;
   email: string;
-  fullName: string;
+  role: 'admin' | 'viewer';
   createdAt: string;
   lastSignInAt: string | null;
-  role: 'admin' | 'viewer';
+}
+
+async function callManageUsers(action: string, params: Record<string, unknown> = {}) {
+  if (!isSupabaseConfigured() || !supabase) {
+    throw new Error('Supabase not configured');
+  }
+
+  const { data: { session } } = await supabase.auth.getSession();
+  if (!session) {
+    throw new Error('Not authenticated');
+  }
+
+  const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+  const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+  const response = await fetch(`${supabaseUrl}/functions/v1/manage-users`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${session.access_token}`,
+      'apikey': supabaseAnonKey,
+    },
+    body: JSON.stringify({ action, ...params }),
+  });
+
+  const data = await response.json();
+  if (!response.ok) {
+    throw new Error(data.error || 'Request failed');
+  }
+  return data;
 }
 
 export async function loadUsers(): Promise<UserRecord[]> {
-  if (!isSupabaseConfigured() || !supabase) return [];
-  const { data, error } = await supabase.rpc('get_users');
-  if (error) throw error;
-  return (data ?? []).map((row: Record<string, unknown>) => ({
-    id: row.id as string,
-    email: row.email as string,
-    fullName: (row.full_name as string) ?? '',
-    createdAt: row.created_at as string,
-    lastSignInAt: (row.last_sign_in_at as string) ?? null,
-    role: (row.role as 'admin' | 'viewer') ?? 'viewer',
-  }));
+  const { users } = await callManageUsers('list');
+  return users;
 }
 
 export async function setUserRole(userId: string, role: 'admin' | 'viewer'): Promise<void> {
-  if (!isSupabaseConfigured() || !supabase) return;
-  const { error } = await supabase
-    .from('user_roles')
-    .upsert({ user_id: userId, role }, { onConflict: 'user_id' });
-  if (error) throw error;
+  await callManageUsers('setRole', { userId, role });
 }
+
+export async function inviteUser(email: string, role: 'admin' | 'viewer' = 'viewer'): Promise<{ resetLink: string | null }> {
+  return await callManageUsers('invite', { email, role });
+}
+
+export async function deleteUser(userId: string): Promise<void> {
+  await callManageUsers('delete', { userId });
+}
+
