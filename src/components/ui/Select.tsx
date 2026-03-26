@@ -10,9 +10,10 @@ interface SelectProps {
   children: React.ReactNode;
   disabled?: boolean;
   className?: string;
+  viewportClassName?: string;
 }
 
-export function Select({ value, onValueChange, placeholder, children, disabled, className }: SelectProps) {
+export function Select({ value, onValueChange, placeholder, children, disabled, className, viewportClassName }: SelectProps) {
   return (
     <RadixSelect.Root value={value} onValueChange={onValueChange} disabled={disabled}>
       <RadixSelect.Trigger
@@ -37,7 +38,7 @@ export function Select({ value, onValueChange, placeholder, children, disabled, 
           position="popper"
           sideOffset={4}
         >
-          <RadixSelect.Viewport className="p-1">
+          <RadixSelect.Viewport className={cn('p-1', viewportClassName)}>
             {children}
           </RadixSelect.Viewport>
         </RadixSelect.Content>

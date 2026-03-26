@@ -30,7 +30,9 @@ interface NodeFormModalProps {
 
 function buildParentOptions(nodes: OrgNode[], excludeId?: string, excludeDescendants?: string[]): OrgNode[] {
   const excluded = new Set([excludeId, ...(excludeDescendants ?? [])].filter(Boolean) as string[]);
-  return nodes.filter(n => !excluded.has(n.id));
+  return nodes
+    .filter(n => !excluded.has(n.id))
+    .sort((a, b) => a.title.localeCompare(b.title));
 }
 
 export function NodeFormModal({ open, onOpenChange, onSubmit, initialNode, nodes, t, defaultParentId }: NodeFormModalProps) {
@@ -331,7 +333,7 @@ export function NodeFormModal({ open, onOpenChange, onSubmit, initialNode, nodes
           {/* Parent Node */}
           <div>
             <label className="block text-xs font-medium text-slate-700 mb-1">{t.reportsTo}</label>
-            <Select value={parentId} onValueChange={setParentId}>
+            <Select value={parentId} onValueChange={setParentId} viewportClassName="max-h-60 overflow-y-auto">
               <SelectItem value="__none__">{t.noParent}</SelectItem>
               {parentOptions.map(n => (
                 <SelectItem key={n.id} value={n.id}>{n.title}</SelectItem>
