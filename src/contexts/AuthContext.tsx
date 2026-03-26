@@ -8,7 +8,9 @@ interface AuthContextValue {
   user: User | null;
   role: UserRole | null;
   loading: boolean;
+  needsPasswordSet: boolean;
   signInWithEmail: (email: string, password: string) => Promise<string | null>;
+  updatePassword: (password: string) => Promise<string | null>;
   signOut: () => Promise<void>;
 }
 
@@ -25,11 +27,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [role, setRole] = useState<UserRole | null>(null);
   const [loading, setLoading] = useState(true);
+  const [needsPasswordSet, setNeedsPasswordSet] = useState(false);
 
   useEffect(() => {
     if (!supabase) {
       setLoading(false);
       return;
+    }
+
+    // Detect invite or recovery link in URL hash
+    const hash = window.location.hash;
+    if (hash.includes('type=invite') || hash.includes('type=recovery')) {
+      setNeedsPasswordSet(true);
     }
 
     // Get initial session immediately
@@ -40,7 +49,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     });
 
     // Listen for subsequent auth changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === 'PASSWORD_RECOVERY') {
+        setNeedsPasswordSet(true);
+      }
       setUser(session?.user ?? null);
       setRole(getRoleFromUser(session?.user ?? null));
     });
@@ -54,12 +66,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return error?.message ?? null;
   }
 
+  async function updatePassword(password: string): Promise<string | null> {
+    if (!supabase) return 'Not configured';
+    const { error } = await supabase.auth.updateUser({ password });
+    if (!error) setNeedsPasswordSet(false);
+    return error?.message ?? null;
+  }
+
   async function signOut() {
     await supabase?.auth.signOut();
   }
 
   return (
-    <AuthContext.Provider value={{ user, role, loading, signInWithEmail, signOut }}>
+    <AuthContext.Provider value={{ user, role, loading, needsPasswordSet, signInWithEmail, updatePassword, signOut }}>
       {children}
     </AuthContext.Provider>
   );

@@ -2,6 +2,7 @@ import React, { useState, useCallback, useEffect } from 'react';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { LoginPage } from './components/auth/LoginPage';
+import { SetPasswordPage } from './components/auth/SetPasswordPage';
 import { TopBar } from './components/layout/TopBar';
 import { Sidebar } from './components/layout/Sidebar';
 import { OrgChartCanvas } from './components/orgchart/OrgChartCanvas';
@@ -441,7 +442,7 @@ function AppContent() {
 }
 
 function AuthGate() {
-  const { user, loading: authLoading } = useAuth();
+  const { user, loading: authLoading, needsPasswordSet } = useAuth();
 
   if (authLoading) {
     return (
@@ -452,6 +453,7 @@ function AuthGate() {
   }
 
   if (!user) return <LoginPage />;
+  if (needsPasswordSet) return <SetPasswordPage />;
 
   return (
     <ErrorBoundary>
