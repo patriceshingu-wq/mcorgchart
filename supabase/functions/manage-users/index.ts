@@ -108,27 +108,19 @@ async function setUserRole(userId: string, role: 'admin' | 'viewer') {
 }
 
 async function inviteUser(email: string, role: 'admin' | 'viewer' = 'viewer') {
-  // Create user with a random password - they'll need to reset it
-  const tempPassword = crypto.randomUUID()
-
-  const { data, error } = await supabaseAdmin.auth.admin.createUser({
-    email,
-    password: tempPassword,
-    email_confirm: true, // Auto-confirm email
-    app_metadata: { role }
+  const { data, error } = await supabaseAdmin.auth.admin.inviteUserByEmail(email, {
+    data: { role }
   })
   if (error) throw error
 
-  // Generate password reset link
-  const { data: linkData, error: linkError } = await supabaseAdmin.auth.admin.generateLink({
-    type: 'recovery',
-    email
+  // Set role in app_metadata (inviteUserByEmail puts it in user_metadata)
+  await supabaseAdmin.auth.admin.updateUserById(data.user.id, {
+    app_metadata: { role }
   })
 
   return {
     success: true,
     user: { id: data.user.id, email, role },
-    resetLink: linkError ? null : linkData.properties?.action_link
   }
 }
 

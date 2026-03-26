@@ -70,14 +70,10 @@ export function SettingsPage({ settings, nodes, onUpdateSettings, t, onReset }: 
     if (!inviteEmail.trim()) return;
     setInviting(true);
     try {
-      const { resetLink } = await inviteUser(inviteEmail.trim(), inviteRole);
-      showToast('User invited');
+      await inviteUser(inviteEmail.trim(), inviteRole);
+      showToast('Invitation email sent');
       setInviteEmail('');
       fetchUsers();
-      if (resetLink) {
-        await navigator.clipboard.writeText(resetLink);
-        showToast('Password reset link copied to clipboard');
-      }
     } catch (err) {
       showToast(err instanceof Error ? err.message : 'Failed to invite user', 'error');
     } finally {
