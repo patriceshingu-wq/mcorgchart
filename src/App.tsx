@@ -26,15 +26,15 @@ const DEFAULT_FILTERS: FilterState = { search: '', category: '', language: '', s
 
 function AppContent() {
   const { settings, updateSettings, isLoading: settingsLoading } = useSettings();
+  const t = useTranslation(settings.language);
+  const { showToast } = useToast();
   const {
     nodes, isLoading: nodesLoading, loadError, storageMode, addNode, updateNode, deleteNode, reassignParent,
     toggleCollapse, collapseAll, expandAll, importNodes, resetToSeed,
     undo, redo, canUndo, canRedo,
-  } = useNodes();
+  } = useNodes(() => showToast(t.saveError, 'error'));
 
   const isLoading = settingsLoading || nodesLoading;
-  const t = useTranslation(settings.language);
-  const { showToast } = useToast();
 
   const [activePage, setActivePage] = useState<ActivePage>('org-chart');
   const [filters, setFilters] = useState<FilterState>(DEFAULT_FILTERS);

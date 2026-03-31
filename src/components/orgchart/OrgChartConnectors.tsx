@@ -1,19 +1,8 @@
 import React from 'react';
 import type { OrgNode, NodePosition } from '../../types';
 import { NODE_HEIGHT } from '../../hooks/useOrgTree';
+import { SCREEN } from '../../constants/layout';
 
-// Approximate row heights for embedded lists
-const DEPT_ROW_HEIGHT = 26;     // EmbeddedDeptList row
-const SUBDEPT_ROW_HEIGHT = 18;  // EmbeddedDeptList sub-department row (smaller)
-const SUBDEPT_CONTAINER_PADDING = 4; // ml-4 border-l pl-2 my-0.5
-const PROGRAM_ROW_HEIGHT = 26;  // EmbeddedDeptList program row
-const PROGRAM_HEADER_HEIGHT = 24; // Programs section header
-const EXEC_ROW_HEIGHT = 36;     // EmbeddedExecList row (taller — has avatar)
-const SENIOR_ROW_HEIGHT = 36;   // Senior leadership embedded row
-// Approximate dark card header height (avatar row + padding)
-const DARK_CARD_HEADER_HEIGHT = 68;
-// Extra padding after embedded list (border-t + pt + pb)
-const LIST_PADDING = 12;
 // Resident Pastor node ID (special standalone dark card)
 const RESIDENT_PASTOR_ID = 'rp-001';
 
@@ -72,40 +61,40 @@ export function OrgChartConnectors({
       ).length;
 
       if (deptCount > 0 || programCount > 0) {
-        let listHeight = deptCount * DEPT_ROW_HEIGHT;
+        let listHeight = deptCount * SCREEN.DEPT_ROW_HEIGHT;
         // Add height for sub-departments under each embedded dept
         for (const dept of embeddedDepts) {
           const subDeptCount = allNodes.filter(
             n => n.parentId === dept.id && embeddedSubDeptIds.has(n.id)
           ).length;
           if (subDeptCount > 0) {
-            listHeight += SUBDEPT_CONTAINER_PADDING + subDeptCount * SUBDEPT_ROW_HEIGHT;
+            listHeight += SCREEN.SUBDEPT_CONTAINER_PADDING + subDeptCount * SCREEN.SUBDEPT_ROW_HEIGHT;
           }
         }
         if (programCount > 0) {
           // Programs section has header + rows + wrapper padding
-          listHeight += PROGRAM_HEADER_HEIGHT + programCount * PROGRAM_ROW_HEIGHT + 8;
+          listHeight += SCREEN.PROGRAM_HEADER_HEIGHT + programCount * SCREEN.PROGRAM_ROW_HEIGHT + 8;
         }
-        effectiveHeight = DARK_CARD_HEADER_HEIGHT + listHeight + LIST_PADDING;
+        effectiveHeight = SCREEN.DARK_CARD_HEADER_HEIGHT + listHeight + SCREEN.LIST_PADDING;
       } else {
-        effectiveHeight = DARK_CARD_HEADER_HEIGHT;
+        effectiveHeight = SCREEN.DARK_CARD_HEADER_HEIGHT;
       }
     } else if (parentNode?.category === 'executive-leadership') {
       const execCount = allNodes.filter(
         n => n.parentId === effectiveParentId && embeddedDeptIds.has(n.id)
       ).length;
       if (execCount > 0) {
-        effectiveHeight = DARK_CARD_HEADER_HEIGHT + execCount * EXEC_ROW_HEIGHT + LIST_PADDING;
+        effectiveHeight = SCREEN.DARK_CARD_HEADER_HEIGHT + execCount * SCREEN.EXEC_ROW_HEIGHT + SCREEN.LIST_PADDING;
       }
     } else if (parentNode?.category === 'senior-leadership') {
       const seniorCount = allNodes.filter(
         n => n.parentId === effectiveParentId && embeddedDeptIds.has(n.id)
       ).length;
       if (seniorCount > 0) {
-        effectiveHeight = DARK_CARD_HEADER_HEIGHT + seniorCount * SENIOR_ROW_HEIGHT + LIST_PADDING;
+        effectiveHeight = SCREEN.DARK_CARD_HEADER_HEIGHT + seniorCount * SCREEN.SENIOR_ROW_HEIGHT + SCREEN.LIST_PADDING;
       } else if (effectiveParentId === RESIDENT_PASTOR_ID) {
         // Resident Pastor is a standalone dark card with no embedded children
-        effectiveHeight = DARK_CARD_HEADER_HEIGHT;
+        effectiveHeight = SCREEN.DARK_CARD_HEADER_HEIGHT;
       }
     }
 

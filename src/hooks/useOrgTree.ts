@@ -37,6 +37,14 @@ export function computeEmbeddedSets(nodes: OrgNode[]): {
     nodes.filter(n => n.category === 'senior-leadership').map(n => n.id)
   );
 
+  // Build a set of all node IDs that have at least one child — O(n)
+  const nodeIdsWithChildren = new Set<string>();
+  for (const n of nodes) {
+    if (n.parentId !== null) {
+      nodeIdsWithChildren.add(n.parentId);
+    }
+  }
+
   // Departments embedded in ministry cards
   const deptIds = nodes
     .filter(n => n.category === 'department' && n.parentId !== null && ministryIds.has(n.parentId!))
@@ -53,7 +61,7 @@ export function computeEmbeddedSets(nodes: OrgNode[]): {
     .filter(n => {
       if (n.category !== 'executive-leadership') return false;
       if (!n.parentId || !execLeadershipIds.has(n.parentId)) return false;
-      const hasChildren = nodes.some(child => child.parentId === n.id);
+      const hasChildren = nodeIdsWithChildren.has(n.id);
       return !hasChildren;
     })
     .map(n => n.id);
@@ -63,7 +71,7 @@ export function computeEmbeddedSets(nodes: OrgNode[]): {
     .filter(n => {
       if (n.category !== 'senior-leadership') return false;
       if (!n.parentId || !seniorLeadershipIds.has(n.parentId)) return false;
-      const hasChildren = nodes.some(child => child.parentId === n.id);
+      const hasChildren = nodeIdsWithChildren.has(n.id);
       return !hasChildren;
     })
     .map(n => n.id);

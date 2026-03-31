@@ -16,7 +16,7 @@ import { supabase, isSupabaseConfigured } from '../lib/supabase';
 const MAX_HISTORY_SIZE = 50;
 const DEBOUNCE_MS = 500;
 
-export function useNodes() {
+export function useNodes(onSaveError?: () => void) {
   const [nodes, setNodes] = useState<OrgNode[]>(SEED_NODES);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -161,6 +161,7 @@ export function useNodes() {
         savedNodesRef.current = nodes;
       } catch (err) {
         console.error('Error saving nodes:', err);
+        onSaveError?.();
       }
     }, DEBOUNCE_MS);
 

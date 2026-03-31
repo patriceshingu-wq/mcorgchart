@@ -112,6 +112,9 @@ export function NodeFormModal({ open, onOpenChange, onSubmit, initialNode, nodes
     newErrors.title = validateField('title', title);
     newErrors.personName = validateField('personName', personName);
     newErrors.description = validateField('description', description);
+    if (duplicateNode) {
+      newErrors.duplicate = 'A node with this title already exists';
+    }
 
     if (Object.values(newErrors).some(Boolean)) {
       setErrors(newErrors);

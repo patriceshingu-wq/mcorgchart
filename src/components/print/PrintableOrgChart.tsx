@@ -10,6 +10,7 @@ import {
   PRINT_V_GAP as V_GAP,
 } from '../../hooks/useOrgTree';
 import { Sparkles } from 'lucide-react';
+import { PRINT } from '../../constants/layout';
 
 function getInitials(title: string): string {
   return title
@@ -29,16 +30,6 @@ function formatPersonDisplay(personTitle: string | undefined, personName: string
   return `${title} ${name}`;
 }
 
-// Height constants for print layout (matching screen constants but scaled)
-const PRINT_DARK_CARD_HEADER_HEIGHT = 58;
-const PRINT_DEPT_ROW_HEIGHT = 22;
-const PRINT_SUBDEPT_ROW_HEIGHT = 16;
-const PRINT_SUBDEPT_CONTAINER_PADDING = 4;
-const PRINT_PROGRAM_ROW_HEIGHT = 22;
-const PRINT_PROGRAM_HEADER_HEIGHT = 20;
-const PRINT_EXEC_ROW_HEIGHT = 30;
-const PRINT_LIST_PADDING = 10;
-
 // Compute actual height of a node based on its embedded content
 function computeNodeHeight(
   node: OrgNode,
@@ -57,31 +48,31 @@ function computeNodeHeight(
     const programCount = nodes.filter(n => n.parentId === node.id && embeddedProgramIds.has(n.id)).length;
 
     if (embeddedDepts.length > 0 || programCount > 0) {
-      let listHeight = embeddedDepts.length * PRINT_DEPT_ROW_HEIGHT;
+      let listHeight = embeddedDepts.length * PRINT.DEPT_ROW_HEIGHT;
       // Add sub-department heights
       for (const dept of embeddedDepts) {
         const subDeptCount = nodes.filter(n => n.parentId === dept.id && embeddedSubDeptIds.has(n.id)).length;
         if (subDeptCount > 0) {
-          listHeight += PRINT_SUBDEPT_CONTAINER_PADDING + subDeptCount * PRINT_SUBDEPT_ROW_HEIGHT;
+          listHeight += PRINT.SUBDEPT_CONTAINER_PADDING + subDeptCount * PRINT.SUBDEPT_ROW_HEIGHT;
         }
       }
       if (programCount > 0) {
-        listHeight += PRINT_PROGRAM_HEADER_HEIGHT + programCount * PRINT_PROGRAM_ROW_HEIGHT + 8;
+        listHeight += PRINT.PROGRAM_HEADER_HEIGHT + programCount * PRINT.PROGRAM_ROW_HEIGHT + 8;
       }
-      return PRINT_DARK_CARD_HEADER_HEIGHT + listHeight + PRINT_LIST_PADDING;
+      return PRINT.DARK_CARD_HEADER_HEIGHT + listHeight + PRINT.LIST_PADDING;
     }
-    return PRINT_DARK_CARD_HEADER_HEIGHT;
+    return PRINT.DARK_CARD_HEADER_HEIGHT;
   }
 
   if (isExecTeam || isSeniorTeam) {
     const execCount = nodes.filter(n => n.parentId === node.id && embeddedDeptIds.has(n.id)).length;
     if (execCount > 0) {
-      return PRINT_DARK_CARD_HEADER_HEIGHT + execCount * PRINT_EXEC_ROW_HEIGHT + PRINT_LIST_PADDING;
+      return PRINT.DARK_CARD_HEADER_HEIGHT + execCount * PRINT.EXEC_ROW_HEIGHT + PRINT.LIST_PADDING;
     }
   }
 
   if (isResidentPastor) {
-    return PRINT_DARK_CARD_HEADER_HEIGHT;
+    return PRINT.DARK_CARD_HEADER_HEIGHT;
   }
 
   return NODE_HEIGHT;
@@ -233,7 +224,7 @@ function PrintConnectors({
     if (!parentPos || !childPos) continue;
 
     const x1 = parentPos.x + parentPos.width / 2;
-    const y1 = parentPos.y + NODE_HEIGHT;
+    const y1 = parentPos.y + parentPos.height;
     const x2 = childPos.x + childPos.width / 2;
     const y2 = childPos.y;
     const midY = (y1 + y2) / 2;
