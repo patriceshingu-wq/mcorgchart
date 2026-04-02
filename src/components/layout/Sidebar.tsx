@@ -91,6 +91,7 @@ export function Sidebar({ nodes, filters, onFiltersChange, onAddNode, isCollapse
           <SelectItem value="ministry-system">{t.ministrySystem}</SelectItem>
           <SelectItem value="department">{t.department}</SelectItem>
           <SelectItem value="program">{t.program}</SelectItem>
+          <SelectItem value="team">{t.team}</SelectItem>
         </Select>
 
         <label className="text-xs font-medium text-slate-600">{t.language}</label>

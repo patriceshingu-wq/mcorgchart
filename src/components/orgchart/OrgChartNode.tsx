@@ -210,6 +210,7 @@ export function OrgChartNode({
                 onSelect={onSelect}
                 onAddChild={onAddChild}
                 onDelete={onDelete}
+                onToggleCollapse={onToggleCollapse}
                 isAdmin={isAdmin}
               />
             </div>
@@ -222,6 +223,7 @@ export function OrgChartNode({
                 onSelect={onSelect}
                 onAddChild={onAddChild}
                 onDelete={onDelete}
+                onToggleCollapse={onToggleCollapse}
                 isAdmin={isAdmin}
               />
             </div>

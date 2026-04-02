@@ -64,11 +64,13 @@ export function OrgChartConnectors({
         let listHeight = deptCount * SCREEN.DEPT_ROW_HEIGHT;
         // Add height for sub-departments under each embedded dept
         for (const dept of embeddedDepts) {
-          const subDeptCount = allNodes.filter(
-            n => n.parentId === dept.id && embeddedSubDeptIds.has(n.id)
-          ).length;
-          if (subDeptCount > 0) {
-            listHeight += SCREEN.SUBDEPT_CONTAINER_PADDING + subDeptCount * SCREEN.SUBDEPT_ROW_HEIGHT;
+          if (!dept.isCollapsed) {
+            const subDeptCount = allNodes.filter(
+              n => n.parentId === dept.id && embeddedSubDeptIds.has(n.id)
+            ).length;
+            if (subDeptCount > 0) {
+              listHeight += SCREEN.SUBDEPT_CONTAINER_PADDING + subDeptCount * SCREEN.SUBDEPT_ROW_HEIGHT;
+            }
           }
         }
         if (programCount > 0) {

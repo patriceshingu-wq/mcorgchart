@@ -1,5 +1,5 @@
 import React from 'react';
-import { Edit2, Info, Sparkles, ChevronRight, Plus, Trash2 } from 'lucide-react';
+import { Edit2, Info, Sparkles, ChevronRight, ChevronDown, Plus, Trash2 } from 'lucide-react';
 import type { OrgNode } from '../../types';
 import { STATUS_COLORS, CATEGORY_COLORS } from '../../types';
 
@@ -12,10 +12,11 @@ interface EmbeddedDeptListProps {
   onSelect: (id: string) => void;
   onAddChild?: (parentId: string) => void;
   onDelete?: (node: OrgNode) => void;
+  onToggleCollapse?: (id: string) => void;
   isAdmin?: boolean;
 }
 
-export function EmbeddedDeptList({ depts, programs = [], subDeptsByParent, accentColor, onEdit, onSelect, onAddChild, onDelete, isAdmin = true }: EmbeddedDeptListProps) {
+export function EmbeddedDeptList({ depts, programs = [], subDeptsByParent, accentColor, onEdit, onSelect, onAddChild, onDelete, onToggleCollapse, isAdmin = true }: EmbeddedDeptListProps) {
   if (depts.length === 0 && programs.length === 0) return null;
 
   const programColor = CATEGORY_COLORS['program']; // bright green
@@ -40,16 +41,23 @@ export function EmbeddedDeptList({ depts, programs = [], subDeptsByParent, accen
                 style={{ width: 7, height: 7, backgroundColor: STATUS_COLORS[dept.status] }}
               />
               <div className="flex-1 min-w-0">
-                <div className="text-[11px] font-medium text-white/90 truncate">
-                  {dept.title}
-                  {subDepts.length > 0 && (
-                    <span className="text-white/40 ml-1">({subDepts.length})</span>
-                  )}
-                </div>
+                <div className="text-[11px] font-medium text-white/90 truncate">{dept.title}</div>
                 {dept.personName && (
                   <div className="text-[9px] text-white/50 truncate">{dept.personName}</div>
                 )}
               </div>
+              {subDepts.length > 0 && (
+                <button
+                  onClick={e => { e.stopPropagation(); onToggleCollapse?.(dept.id); }}
+                  className="p-0.5 rounded text-white/40 hover:text-white hover:bg-white/10 transition-colors flex-shrink-0"
+                  title={dept.isCollapsed ? 'Expand teams' : 'Collapse teams'}
+                >
+                  {dept.isCollapsed
+                    ? <ChevronRight className="h-2.5 w-2.5" />
+                    : <ChevronDown className="h-2.5 w-2.5" />
+                  }
+                </button>
+              )}
               {isAdmin && (
                 <>
                   <button
@@ -63,7 +71,7 @@ export function EmbeddedDeptList({ depts, programs = [], subDeptsByParent, accen
                     <button
                       onClick={e => { e.stopPropagation(); onAddChild(dept.id); }}
                       className="p-0.5 rounded text-white/30 opacity-0 group-hover/row:opacity-100 hover:text-white hover:bg-white/10 transition-opacity"
-                      title="Add sub-department"
+                      title="Add team"
                     >
                       <Plus className="h-2.5 w-2.5" />
                     </button>
@@ -78,8 +86,8 @@ export function EmbeddedDeptList({ depts, programs = [], subDeptsByParent, accen
                 <Info className="h-2.5 w-2.5" />
               </button>
             </div>
-            {/* Sub-departments */}
-            {subDepts.length > 0 && (
+            {/* Teams / sub-departments */}
+            {subDepts.length > 0 && !dept.isCollapsed && (
               <div className="ml-4 border-l border-white/10 pl-2 my-0.5">
                 {subDepts.map(subDept => (
                   <div
@@ -100,7 +108,7 @@ export function EmbeddedDeptList({ depts, programs = [], subDeptsByParent, accen
                         <button
                           onClick={e => { e.stopPropagation(); onEdit(subDept); }}
                           className="p-0.5 rounded text-white/30 opacity-0 group-hover/subrow:opacity-100 hover:text-white hover:bg-white/10 transition-opacity"
-                          title="Edit sub-department"
+                          title="Edit team"
                         >
                           <Edit2 className="h-2 w-2" />
                         </button>
@@ -108,7 +116,7 @@ export function EmbeddedDeptList({ depts, programs = [], subDeptsByParent, accen
                           <button
                             onClick={e => { e.stopPropagation(); onDelete(subDept); }}
                             className="p-0.5 rounded text-white/30 opacity-0 group-hover/subrow:opacity-100 hover:text-rose-400 hover:bg-white/10 transition-opacity"
-                            title="Delete sub-department"
+                            title="Delete team"
                           >
                             <Trash2 className="h-2 w-2" />
                           </button>

@@ -6,7 +6,7 @@
 
 export const SCREEN = {
   DEPT_ROW_HEIGHT: 26,
-  SUBDEPT_ROW_HEIGHT: 18,
+  SUBDEPT_ROW_HEIGHT: 18,  // also applies to 'team' nodes under departments
   SUBDEPT_CONTAINER_PADDING: 4,
   PROGRAM_ROW_HEIGHT: 26,
   PROGRAM_HEADER_HEIGHT: 24,
@@ -19,7 +19,7 @@ export const SCREEN = {
 export const PRINT = {
   DARK_CARD_HEADER_HEIGHT: 58,
   DEPT_ROW_HEIGHT: 22,
-  SUBDEPT_ROW_HEIGHT: 16,
+  SUBDEPT_ROW_HEIGHT: 16,  // also applies to 'team' nodes under departments
   SUBDEPT_CONTAINER_PADDING: 4,
   PROGRAM_ROW_HEIGHT: 22,
   PROGRAM_HEADER_HEIGHT: 20,

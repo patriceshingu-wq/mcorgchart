@@ -13,6 +13,7 @@ const CATEGORY_LABEL_KEYS: Record<OrgNode['category'], keyof TranslationKeys> = 
   'ministry-system': 'ministrySystem',
   'department': 'department',
   'program': 'program',
+  'team': 'team',
 };
 const STATUS_LABEL_KEYS: Record<OrgNode['status'], keyof TranslationKeys> = {
   active: 'active', vacant: 'vacant', inactive: 'inactive',

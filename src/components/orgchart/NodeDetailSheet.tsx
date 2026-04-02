@@ -20,6 +20,7 @@ const CATEGORY_LABELS: Record<OrgNode['category'], keyof TranslationKeys> = {
   'ministry-system': 'ministrySystem',
   'department': 'department',
   'program': 'program',
+  'team': 'team',
 };
 
 interface NodeDetailSheetProps {

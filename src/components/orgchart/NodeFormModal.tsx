@@ -66,7 +66,8 @@ export function NodeFormModal({ open, onOpenChange, onSubmit, initialNode, nodes
         setPersonTitle('');
         setPersonName('');
         setDescription('');
-        setCategory('department');
+        const parentNode = defaultParentId ? nodes.find(n => n.id === defaultParentId) : null;
+        setCategory(parentNode?.category === 'department' ? 'team' : 'department');
         setLanguage('both');
         setStatus('vacant'); // Default to vacant for new nodes (no person assigned yet)
         setParentId(defaultParentId !== undefined ? (defaultParentId ?? '__none__') : '__none__');
@@ -267,6 +268,7 @@ export function NodeFormModal({ open, onOpenChange, onSubmit, initialNode, nodes
                 <SelectItem value="ministry-system">{t.ministrySystem}</SelectItem>
                 <SelectItem value="department">{t.department}</SelectItem>
                 <SelectItem value="program">{t.program}</SelectItem>
+                <SelectItem value="team">{t.team}</SelectItem>
               </Select>
             </div>
             <div>

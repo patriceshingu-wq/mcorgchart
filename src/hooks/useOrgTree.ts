@@ -76,10 +76,14 @@ export function computeEmbeddedSets(nodes: OrgNode[]): {
     })
     .map(n => n.id);
 
-  // Sub-departments embedded in department cards (departments whose parent is also a department)
+  // Sub-departments and teams embedded in department cards
   const deptIdSet = new Set(deptIds);
   const subDeptIds = nodes
-    .filter(n => n.category === 'department' && n.parentId !== null && deptIdSet.has(n.parentId!))
+    .filter(n =>
+      n.parentId !== null &&
+      deptIdSet.has(n.parentId!) &&
+      (n.category === 'department' || n.category === 'team')
+    )
     .map(n => n.id);
 
   return {

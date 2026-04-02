@@ -49,11 +49,13 @@ function computeNodeHeight(
 
     if (embeddedDepts.length > 0 || programCount > 0) {
       let listHeight = embeddedDepts.length * PRINT.DEPT_ROW_HEIGHT;
-      // Add sub-department heights
+      // Add sub-department / team heights (skip when dept is collapsed)
       for (const dept of embeddedDepts) {
-        const subDeptCount = nodes.filter(n => n.parentId === dept.id && embeddedSubDeptIds.has(n.id)).length;
-        if (subDeptCount > 0) {
-          listHeight += PRINT.SUBDEPT_CONTAINER_PADDING + subDeptCount * PRINT.SUBDEPT_ROW_HEIGHT;
+        if (!dept.isCollapsed) {
+          const subDeptCount = nodes.filter(n => n.parentId === dept.id && embeddedSubDeptIds.has(n.id)).length;
+          if (subDeptCount > 0) {
+            listHeight += PRINT.SUBDEPT_CONTAINER_PADDING + subDeptCount * PRINT.SUBDEPT_ROW_HEIGHT;
+          }
         }
       }
       if (programCount > 0) {
@@ -352,7 +354,7 @@ function PrintNode({
                       {subDepts.length > 0 && <span style={{ opacity: 0.5, marginLeft: 4 }}>({subDepts.length})</span>}
                     </span>
                   </div>
-                  {subDepts.length > 0 && (
+                  {subDepts.length > 0 && !dept.isCollapsed && (
                     <div style={{ marginLeft: 16, borderLeft: '1px solid rgba(255,255,255,0.1)', paddingLeft: 8, marginTop: 2, marginBottom: 2 }}>
                       {subDepts.map(subDept => (
                         <div key={subDept.id} style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '1px 0', fontSize: 9 }}>

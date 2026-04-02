@@ -114,7 +114,7 @@ function csvToNodes(csv: string): OrgNode[] {
   const isCollapsedIdx = headers.indexOf('isCollapsed');
   const colorIndexIdx = headers.indexOf('colorIndex');
 
-  const validCategories = new Set(['senior-leadership', 'executive-leadership', 'ministry-system', 'department', 'program']);
+  const validCategories = new Set(['senior-leadership', 'executive-leadership', 'ministry-system', 'department', 'program', 'team']);
   const validLanguages = new Set(['english', 'french', 'both']);
   const validStatuses = new Set(['active', 'vacant', 'inactive']);
 

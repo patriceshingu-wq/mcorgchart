@@ -3,7 +3,8 @@ export type NodeCategory =
   | 'executive-leadership'
   | 'ministry-system'
   | 'department'
-  | 'program';
+  | 'program'
+  | 'team';
 
 export interface OrgNode {
   id: string;
@@ -51,6 +52,7 @@ export const CATEGORY_COLORS: Record<NodeCategory, string> = {
   'ministry-system': '#14B8A6',      // vibrant teal (fallback)
   'department': '#F97316',           // bright orange
   'program': '#22C55E',              // bright green
+  'team': '#A78BFA',                 // light violet
 };
 
 // Senior pastors card palette (gold — distinct from exec team blue)
