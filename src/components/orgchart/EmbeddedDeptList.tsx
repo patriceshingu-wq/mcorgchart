@@ -62,7 +62,7 @@ export function EmbeddedDeptList({ depts, programs = [], subDeptsByParent, accen
                 <>
                   <button
                     onClick={e => { e.stopPropagation(); onEdit(dept); }}
-                    className="p-0.5 rounded text-white/30 opacity-0 group-hover/row:opacity-100 hover:text-white hover:bg-white/10 transition-opacity"
+                    className="p-0.5 rounded text-white opacity-0 group-hover/row:opacity-100 hover:bg-white/10 transition-opacity"
                     title="Edit department"
                   >
                     <Edit2 className="h-2.5 w-2.5" />
@@ -70,7 +70,7 @@ export function EmbeddedDeptList({ depts, programs = [], subDeptsByParent, accen
                   {onAddChild && (
                     <button
                       onClick={e => { e.stopPropagation(); onAddChild(dept.id); }}
-                      className="p-0.5 rounded text-white/30 opacity-0 group-hover/row:opacity-100 hover:text-white hover:bg-white/10 transition-opacity"
+                      className="p-0.5 rounded text-white opacity-0 group-hover/row:opacity-100 hover:bg-white/10 transition-opacity"
                       title="Add team"
                     >
                       <Plus className="h-2.5 w-2.5" />
@@ -80,7 +80,7 @@ export function EmbeddedDeptList({ depts, programs = [], subDeptsByParent, accen
               )}
               <button
                 onClick={e => { e.stopPropagation(); onSelect(dept.id); }}
-                className="p-0.5 rounded text-white/30 opacity-0 group-hover/row:opacity-100 hover:text-white hover:bg-white/10 transition-opacity"
+                className="p-0.5 rounded text-white opacity-0 group-hover/row:opacity-100 hover:bg-white/10 transition-opacity"
                 title="View details"
               >
                 <Info className="h-2.5 w-2.5" />
@@ -107,7 +107,7 @@ export function EmbeddedDeptList({ depts, programs = [], subDeptsByParent, accen
                       <>
                         <button
                           onClick={e => { e.stopPropagation(); onEdit(subDept); }}
-                          className="p-0.5 rounded text-white/30 opacity-0 group-hover/subrow:opacity-100 hover:text-white hover:bg-white/10 transition-opacity"
+                          className="p-0.5 rounded text-white opacity-0 group-hover/subrow:opacity-100 hover:bg-white/10 transition-opacity"
                           title="Edit team"
                         >
                           <Edit2 className="h-2 w-2" />
@@ -115,7 +115,7 @@ export function EmbeddedDeptList({ depts, programs = [], subDeptsByParent, accen
                         {onDelete && (
                           <button
                             onClick={e => { e.stopPropagation(); onDelete(subDept); }}
-                            className="p-0.5 rounded text-white/30 opacity-0 group-hover/subrow:opacity-100 hover:text-rose-400 hover:bg-white/10 transition-opacity"
+                            className="p-0.5 rounded text-white opacity-0 group-hover/subrow:opacity-100 hover:text-rose-400 hover:bg-white/10 transition-opacity"
                             title="Delete team"
                           >
                             <Trash2 className="h-2 w-2" />
@@ -171,7 +171,7 @@ export function EmbeddedDeptList({ depts, programs = [], subDeptsByParent, accen
               {isAdmin && (
                 <button
                   onClick={e => { e.stopPropagation(); onEdit(prog); }}
-                  className="p-0.5 rounded text-white/30 opacity-0 group-hover/row:opacity-100 hover:text-white hover:bg-white/10 transition-opacity"
+                  className="p-0.5 rounded text-white opacity-0 group-hover/row:opacity-100 hover:bg-white/10 transition-opacity"
                   title="Edit program"
                 >
                   <Edit2 className="h-2.5 w-2.5" />
@@ -179,7 +179,7 @@ export function EmbeddedDeptList({ depts, programs = [], subDeptsByParent, accen
               )}
               <button
                 onClick={e => { e.stopPropagation(); onSelect(prog.id); }}
-                className="p-0.5 rounded text-white/30 opacity-0 group-hover/row:opacity-100 hover:text-white hover:bg-white/10 transition-opacity"
+                className="p-0.5 rounded text-white opacity-0 group-hover/row:opacity-100 hover:bg-white/10 transition-opacity"
                 title="View details"
               >
                 <Info className="h-2.5 w-2.5" />

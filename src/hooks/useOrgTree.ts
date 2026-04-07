@@ -8,11 +8,8 @@ export const NODE_HEIGHT = 110;
 export const H_GAP = 28;
 export const V_GAP = 56;
 
-// Dark card header height (for standalone dark cards like Resident Pastor)
+// Dark card header height (for dark container cards)
 export const DARK_CARD_HEADER_HEIGHT = 68;
-
-// Resident Pastor node ID (special short dark card)
-const RESIDENT_PASTOR_ID = 'rp-001';
 
 // Print layout constants (scaled down to fit on page)
 export const PRINT_NODE_WIDTH = 200;
@@ -142,11 +139,8 @@ function subtreeWidth(
   return Math.max(nodeWidth, total + H_GAP * (children.length - 1));
 }
 
-// Get the effective height of a node (shorter for standalone dark cards like Resident Pastor)
-function getNodeEffectiveHeight(nodeId: string): number {
-  if (nodeId === RESIDENT_PASTOR_ID) {
-    return DARK_CARD_HEADER_HEIGHT;
-  }
+// Get the effective height of a node
+function getNodeEffectiveHeight(_nodeId: string): number {
   return NODE_HEIGHT;
 }
 

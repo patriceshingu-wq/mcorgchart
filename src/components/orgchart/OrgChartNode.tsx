@@ -92,16 +92,16 @@ export function OrgChartNode({
   const isMinistry = node.category === 'ministry-system';
   const isExecTeam = node.category === 'executive-leadership' && embeddedExecs.length > 0;
   const isSeniorTeam = node.category === 'senior-leadership' && embeddedExecs.length > 0;
-  const isResidentPastor = node.id === 'rp-001'; // Resident Pastor gets special styling
   const isDeptWithSubDepts = node.category === 'department' && embeddedSubDepts.length > 0;
-  const isDarkCard = isMinistry || isExecTeam || isSeniorTeam || isResidentPastor || isDeptWithSubDepts;
+  const isDarkCard = isMinistry || isExecTeam || isSeniorTeam || isDeptWithSubDepts;
 
   const ministryPalette = isMinistry ? getMinistryPalette(node.id, node.colorIndex) : null;
-  const seniorPalette = isSeniorTeam ? SENIOR_PASTORS_PALETTE : null;
-  const residentPalette = isResidentPastor ? RESIDENT_PASTOR_PALETTE : null;
+  const seniorPalette = isSeniorTeam
+    ? (node.id === 'rp-001' ? RESIDENT_PASTOR_PALETTE : SENIOR_PASTORS_PALETTE)
+    : null;
   // Departments with sub-departments use the department orange color
   const deptPalette = isDeptWithSubDepts ? { accent: '#F97316', bg: '#431407', border: '#9a3412' } : null;
-  const activePalette = ministryPalette ?? seniorPalette ?? residentPalette ?? deptPalette;
+  const activePalette = ministryPalette ?? seniorPalette ?? deptPalette;
   // Exec team uses Tailwind blue; ministry/senior/resident/dept use inline palette styles
   const darkBg = (isExecTeam && !activePalette) ? 'bg-blue-900 border-blue-700' : '';
 
@@ -137,32 +137,17 @@ export function OrgChartNode({
               className="flex-shrink-0 rounded-full flex items-center justify-center text-white font-bold text-[11px]"
               style={{ width: 32, height: 32, backgroundColor: activePalette?.accent ?? categoryColor }}
             >
-              {isResidentPastor && node.personName
-                ? getInitials(node.personName)
-                : getInitials(node.title)}
+              {getInitials(node.title)}
             </div>
             <div className="flex-1 min-w-0">
-              {isResidentPastor ? (
-                <>
-                  <div className="text-[12px] font-semibold text-white leading-tight line-clamp-2 pr-1">
-                    {node.personName ? formatPersonDisplay(node.personTitle, node.personName) : '—'}
-                  </div>
-                  <div className="text-[10px] text-white/50 mt-0.5">
-                    {node.title}
-                  </div>
-                </>
-              ) : (
-                <>
-                  <div className="text-[12px] font-semibold text-white leading-tight line-clamp-2 pr-1">
-                    {node.title}
-                  </div>
-                  <div className="text-[10px] text-white/50 mt-0.5">
-                    {node.personName
-                      ? formatPersonDisplay(node.personTitle, node.personName)
-                      : isMinistry ? 'Ministry Division' : isSeniorTeam ? 'Senior Leadership' : isDeptWithSubDepts ? 'Department' : 'Executive Leadership'}
-                  </div>
-                </>
-              )}
+              <div className="text-[12px] font-semibold text-white leading-tight line-clamp-2 pr-1">
+                {node.title}
+              </div>
+              <div className="text-[10px] text-white/50 mt-0.5">
+                {node.personName
+                  ? formatPersonDisplay(node.personTitle, node.personName)
+                  : isMinistry ? 'Ministry Division' : isSeniorTeam ? 'Senior Leadership' : isDeptWithSubDepts ? 'Department' : 'Executive Leadership'}
+              </div>
             </div>
             {/* Kebab menu — admin only */}
             {isAdmin && (

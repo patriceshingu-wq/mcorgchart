@@ -3,8 +3,6 @@ import type { OrgNode, NodePosition } from '../../types';
 import { NODE_HEIGHT } from '../../hooks/useOrgTree';
 import { SCREEN } from '../../constants/layout';
 
-// Resident Pastor node ID (special standalone dark card)
-const RESIDENT_PASTOR_ID = 'rp-001';
 
 interface OrgChartConnectorsProps {
   nodes: OrgNode[];
@@ -94,9 +92,6 @@ export function OrgChartConnectors({
       ).length;
       if (seniorCount > 0) {
         effectiveHeight = SCREEN.DARK_CARD_HEADER_HEIGHT + seniorCount * SCREEN.SENIOR_ROW_HEIGHT + SCREEN.LIST_PADDING;
-      } else if (effectiveParentId === RESIDENT_PASTOR_ID) {
-        // Resident Pastor is a standalone dark card with no embedded children
-        effectiveHeight = SCREEN.DARK_CARD_HEADER_HEIGHT;
       }
     }
 

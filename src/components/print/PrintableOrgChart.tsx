@@ -41,7 +41,6 @@ function computeNodeHeight(
   const isMinistry = node.category === 'ministry-system';
   const isExecTeam = node.category === 'executive-leadership';
   const isSeniorTeam = node.category === 'senior-leadership';
-  const isResidentPastor = node.id === 'rp-001';
 
   if (isMinistry) {
     const embeddedDepts = nodes.filter(n => n.parentId === node.id && embeddedDeptIds.has(n.id));
@@ -71,10 +70,6 @@ function computeNodeHeight(
     if (execCount > 0) {
       return PRINT.DARK_CARD_HEADER_HEIGHT + execCount * PRINT.EXEC_ROW_HEIGHT + PRINT.LIST_PADDING;
     }
-  }
-
-  if (isResidentPastor) {
-    return PRINT.DARK_CARD_HEADER_HEIGHT;
   }
 
   return NODE_HEIGHT;
@@ -268,15 +263,15 @@ function PrintNode({
   const isMinistry = node.category === 'ministry-system';
   const isExecTeam = node.category === 'executive-leadership' && embeddedExecs.length > 0;
   const isSeniorTeam = node.category === 'senior-leadership' && embeddedExecs.length > 0;
-  const isResidentPastor = node.id === 'rp-001';
   const isDeptWithSubDepts = node.category === 'department' && embeddedSubDepts.length > 0;
-  const isDarkCard = isMinistry || isExecTeam || isSeniorTeam || isResidentPastor || isDeptWithSubDepts;
+  const isDarkCard = isMinistry || isExecTeam || isSeniorTeam || isDeptWithSubDepts;
 
   const ministryPalette = isMinistry ? getMinistryPalette(node.id, node.colorIndex) : null;
-  const seniorPalette = isSeniorTeam ? SENIOR_PASTORS_PALETTE : null;
-  const residentPalette = isResidentPastor ? RESIDENT_PASTOR_PALETTE : null;
+  const seniorPalette = isSeniorTeam
+    ? (node.id === 'rp-001' ? RESIDENT_PASTOR_PALETTE : SENIOR_PASTORS_PALETTE)
+    : null;
   const deptPalette = isDeptWithSubDepts ? { accent: '#F97316', bg: '#431407', border: '#9a3412' } : null;
-  const activePalette = ministryPalette ?? seniorPalette ?? residentPalette ?? deptPalette;
+  const activePalette = ministryPalette ?? seniorPalette ?? deptPalette;
   const programColor = CATEGORY_COLORS['program'];
 
   if (isDarkCard) {
@@ -314,28 +309,15 @@ function PrintNode({
                 flexShrink: 0,
               }}
             >
-              {isResidentPastor && node.personName
-                ? getInitials(node.personName)
-                : getInitials(node.title)}
+              {getInitials(node.title)}
             </div>
             <div style={{ flex: 1, minWidth: 0 }}>
-              {isResidentPastor ? (
-                <>
-                  <div style={{ fontSize: 11, fontWeight: 600, lineHeight: 1.2 }}>
-                    {node.personName ? formatPersonDisplay(node.personTitle, node.personName) : '—'}
-                  </div>
-                  <div style={{ fontSize: 9, opacity: 0.6, marginTop: 2 }}>{node.title}</div>
-                </>
-              ) : (
-                <>
-                  <div style={{ fontSize: 11, fontWeight: 600, lineHeight: 1.2 }}>{node.title}</div>
-                  <div style={{ fontSize: 9, opacity: 0.6, marginTop: 2 }}>
-                    {node.personName
-                      ? formatPersonDisplay(node.personTitle, node.personName)
-                      : isMinistry ? 'Ministry' : isSeniorTeam ? 'Senior Leadership' : isDeptWithSubDepts ? 'Department' : 'Executive'}
-                  </div>
-                </>
-              )}
+              <div style={{ fontSize: 11, fontWeight: 600, lineHeight: 1.2 }}>{node.title}</div>
+              <div style={{ fontSize: 9, opacity: 0.6, marginTop: 2 }}>
+                {node.personName
+                  ? formatPersonDisplay(node.personTitle, node.personName)
+                  : isMinistry ? 'Ministry' : isSeniorTeam ? 'Senior Leadership' : isDeptWithSubDepts ? 'Department' : 'Executive'}
+              </div>
             </div>
           </div>
         </div>
