@@ -16,7 +16,7 @@ import type { TranslationKeys } from '../../data/translations';
 // Validation constants
 const MAX_TITLE_LENGTH = 100;
 const MAX_PERSON_NAME_LENGTH = 80;
-const MAX_DESCRIPTION_LENGTH = 500;
+const MAX_DESCRIPTION_LENGTH = 2000;
 
 interface NodeFormModalProps {
   open: boolean;
