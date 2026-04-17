@@ -1,13 +1,15 @@
 import React from 'react';
 import { Edit2, Sparkles, ChevronRight, ChevronDown, Plus, Trash2 } from 'lucide-react';
-import type { OrgNode } from '../../types';
+import type { OrgNode, CardDisplayMode } from '../../types';
 import { STATUS_COLORS, CATEGORY_COLORS } from '../../types';
+import { getCardText } from '../../lib/utils';
 
 interface EmbeddedDeptListProps {
   depts: OrgNode[];
   programs?: OrgNode[];
   subDeptsByParent?: Map<string, OrgNode[]>;
   membersByParent?: Map<string, OrgNode[]>;
+  cardDisplayMode?: CardDisplayMode;
   accentColor?: string;
   onEdit: (node: OrgNode) => void;
   onSelect: (id: string) => void;
@@ -17,7 +19,7 @@ interface EmbeddedDeptListProps {
   isAdmin?: boolean;
 }
 
-export function EmbeddedDeptList({ depts, programs = [], subDeptsByParent, membersByParent, accentColor, onEdit, onSelect, onAddChild, onDelete, onToggleCollapse, isAdmin = true }: EmbeddedDeptListProps) {
+export function EmbeddedDeptList({ depts, programs = [], subDeptsByParent, membersByParent, cardDisplayMode = 'both', accentColor, onEdit, onSelect, onAddChild, onDelete, onToggleCollapse, isAdmin = true }: EmbeddedDeptListProps) {
   if (depts.length === 0 && programs.length === 0) return null;
 
   const programColor = CATEGORY_COLORS['program']; // bright green
@@ -42,14 +44,15 @@ export function EmbeddedDeptList({ depts, programs = [], subDeptsByParent, membe
                 style={{ width: 7, height: 7, backgroundColor: STATUS_COLORS[dept.status] }}
               />
               <div className="flex-1 min-w-0">
-                {dept.personName ? (
-                  <>
-                    <div className="text-[11px] font-medium text-white/90 truncate">{dept.personName}</div>
-                    <div className="text-[9px] text-white/50 truncate">{dept.title}</div>
-                  </>
-                ) : (
-                  <div className="text-[11px] font-medium text-white/90 truncate">{dept.title}</div>
-                )}
+                {(() => {
+                  const { primary, secondary } = getCardText(dept, cardDisplayMode);
+                  return (
+                    <>
+                      <div className="text-[11px] font-medium text-white/90 truncate">{primary}</div>
+                      {secondary && <div className="text-[9px] text-white/50 truncate">{secondary}</div>}
+                    </>
+                  );
+                })()}
               </div>
               {subDepts.length > 0 && (
                 <button
@@ -101,14 +104,15 @@ export function EmbeddedDeptList({ depts, programs = [], subDeptsByParent, membe
                           style={{ width: 5, height: 5, backgroundColor: STATUS_COLORS[subDept.status] }}
                         />
                         <div className="flex-1 min-w-0">
-                          {subDept.personName ? (
-                            <>
-                              <div className="text-[10px] text-white/70 truncate">{subDept.personName}</div>
-                              <div className="text-[8px] text-white/40 truncate">{subDept.title}</div>
-                            </>
-                          ) : (
-                            <div className="text-[10px] text-white/70 truncate">{subDept.title}</div>
-                          )}
+                          {(() => {
+                            const { primary, secondary } = getCardText(subDept, cardDisplayMode);
+                            return (
+                              <>
+                                <div className="text-[10px] text-white/70 truncate">{primary}</div>
+                                {secondary && <div className="text-[8px] text-white/40 truncate">{secondary}</div>}
+                              </>
+                            );
+                          })()}
                         </div>
                         {members.length > 0 && (
                           <span className="text-[8px] text-white/30 flex-shrink-0">{members.length}</span>
@@ -175,14 +179,15 @@ export function EmbeddedDeptList({ depts, programs = [], subDeptsByParent, membe
                 }}
               />
               <div className="flex-1 min-w-0">
-                {prog.personName ? (
-                  <>
-                    <div className="text-[11px] font-medium text-white/90 truncate">{prog.personName}</div>
-                    <div className="text-[9px] text-white/50 truncate">{prog.title}</div>
-                  </>
-                ) : (
-                  <div className="text-[11px] font-medium text-white/90 truncate">{prog.title}</div>
-                )}
+                {(() => {
+                  const { primary, secondary } = getCardText(prog, cardDisplayMode);
+                  return (
+                    <>
+                      <div className="text-[11px] font-medium text-white/90 truncate">{primary}</div>
+                      {secondary && <div className="text-[9px] text-white/50 truncate">{secondary}</div>}
+                    </>
+                  );
+                })()}
               </div>
               {isAdmin && (
                 <button

@@ -27,6 +27,7 @@ export interface AppSettings {
   language: 'en' | 'fr';
 }
 
+export type CardDisplayMode = 'name' | 'title' | 'both';
 export type ActivePage = 'org-chart' | 'export' | 'settings';
 export type ZoomLevel = 50 | 75 | 100 | 125 | 150;
 

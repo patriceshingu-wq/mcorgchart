@@ -8,9 +8,9 @@ import {
   DropdownMenuItem,
   DropdownMenuSeparator,
 } from '../ui/DropdownMenu';
-import type { OrgNode, NodePosition } from '../../types';
+import type { OrgNode, NodePosition, CardDisplayMode } from '../../types';
 import { CATEGORY_COLORS, STATUS_COLORS, getMinistryPalette, SENIOR_PASTORS_PALETTE, RESIDENT_PASTOR_PALETTE } from '../../types';
-import { cn } from '../../lib/utils';
+import { cn, getCardText } from '../../lib/utils';
 import type { TranslationKeys } from '../../data/translations';
 import { EmbeddedDeptList } from './EmbeddedDeptList';
 import { EmbeddedExecList } from './EmbeddedExecList';
@@ -49,6 +49,7 @@ interface OrgChartNodeProps {
   embeddedSubDepts: OrgNode[];
   subDeptsByParent?: Map<string, OrgNode[]>;
   membersByParent?: Map<string, OrgNode[]>;
+  cardDisplayMode: CardDisplayMode;
   isSelected: boolean;
   isMatching: boolean;
   hasActiveFilter: boolean;
@@ -72,6 +73,7 @@ export function OrgChartNode({
   embeddedSubDepts,
   subDeptsByParent,
   membersByParent,
+  cardDisplayMode,
   isSelected,
   isMatching,
   hasActiveFilter,
@@ -142,25 +144,20 @@ export function OrgChartNode({
               {getInitials(node.title)}
             </div>
             <div className="flex-1 min-w-0">
-              {node.personName ? (
-                <>
-                  <div className="text-[12px] font-semibold text-white leading-tight line-clamp-2 pr-1">
-                    {node.title}
-                  </div>
-                  <div className="text-[10px] text-white/50 mt-0.5">
-                    {formatPersonDisplay(node.personTitle, node.personName)}
-                  </div>
-                </>
-              ) : (
-                <>
-                  <div className="text-[12px] font-semibold text-white leading-tight line-clamp-2 pr-1">
-                    {node.title}
-                  </div>
-                  <div className="text-[10px] text-white/50 mt-0.5">
-                    {isMinistry ? 'Ministry Division' : isSeniorTeam ? 'Senior Leadership' : isDeptWithSubDepts ? 'Department' : 'Executive Leadership'}
-                  </div>
-                </>
-              )}
+              {(() => {
+                const { primary, secondary } = getCardText(node, cardDisplayMode);
+                const fallback = isMinistry ? 'Ministry Division' : isSeniorTeam ? 'Senior Leadership' : isDeptWithSubDepts ? 'Department' : 'Executive Leadership';
+                return (
+                  <>
+                    <div className="text-[12px] font-semibold text-white leading-tight line-clamp-2 pr-1">
+                      {primary}
+                    </div>
+                    <div className="text-[10px] text-white/50 mt-0.5">
+                      {secondary || (!node.personName ? fallback : '')}
+                    </div>
+                  </>
+                );
+              })()}
             </div>
             {/* Kebab menu — admin only */}
             {isAdmin && (
@@ -204,6 +201,7 @@ export function OrgChartNode({
                 programs={embeddedPrograms}
                 subDeptsByParent={subDeptsByParent}
                 membersByParent={membersByParent}
+                cardDisplayMode={cardDisplayMode}
                 accentColor={activePalette?.accent}
                 onEdit={onEdit}
                 onSelect={onSelect}
@@ -217,6 +215,7 @@ export function OrgChartNode({
             <div className="bg-black/25 rounded-b-xl overflow-hidden">
               <EmbeddedDeptList
                 depts={embeddedSubDepts}
+                cardDisplayMode={cardDisplayMode}
                 accentColor={activePalette?.accent}
                 onEdit={onEdit}
                 onSelect={onSelect}
@@ -230,6 +229,7 @@ export function OrgChartNode({
             <div className="bg-black/25 rounded-b-xl overflow-hidden">
               <EmbeddedExecList
                 execs={embeddedExecs}
+                cardDisplayMode={cardDisplayMode}
                 accentColor={activePalette?.accent ?? categoryColor}
                 onEdit={onEdit}
                 onSelect={onSelect}
@@ -288,17 +288,19 @@ export function OrgChartNode({
 
           {/* Content */}
           <div className="pl-3.5 pr-2 pt-2.5 pb-3">
-            {node.personName ? (
-              <>
-                <div className="text-xs font-semibold text-slate-900 leading-tight line-clamp-2 pr-1">{node.personName}</div>
-                <div className="text-[11px] text-slate-500 mt-0.5 truncate">{node.title}</div>
-              </>
-            ) : (
-              <>
-                <div className="text-xs font-semibold text-slate-900 leading-tight line-clamp-2 pr-1">{node.title}</div>
-                <div className="text-[11px] text-slate-300 mt-0.5 italic">—</div>
-              </>
-            )}
+            {(() => {
+              const { primary, secondary } = getCardText(node, cardDisplayMode);
+              return (
+                <>
+                  <div className="text-xs font-semibold text-slate-900 leading-tight line-clamp-2 pr-1">{primary}</div>
+                  {secondary ? (
+                    <div className="text-[11px] text-slate-500 mt-0.5 truncate">{secondary}</div>
+                  ) : !node.personName && cardDisplayMode !== 'title' ? (
+                    <div className="text-[11px] text-slate-300 mt-0.5 italic">—</div>
+                  ) : null}
+                </>
+              );
+            })()}
             <div className="mt-1.5 flex items-center gap-1.5 flex-wrap">
               <span className="inline-block text-[10px] px-1.5 py-0.5 rounded-full bg-slate-100 text-slate-500 font-medium">
                 {LANGUAGE_LABELS[node.language]}
