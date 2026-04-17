@@ -66,7 +66,10 @@ function computeNodeHeight(
   }
 
   if (isExecTeam || isSeniorTeam) {
-    const execCount = nodes.filter(n => n.parentId === node.id && embeddedDeptIds.has(n.id)).length;
+    const directEmbedded = nodes.filter(n => n.parentId === node.id && embeddedDeptIds.has(n.id));
+    const directIds = new Set(directEmbedded.map(n => n.id));
+    const grandchildren = nodes.filter(n => n.parentId && directIds.has(n.parentId) && embeddedDeptIds.has(n.id));
+    const execCount = directEmbedded.length + grandchildren.length;
     if (execCount > 0) {
       return PRINT.DARK_CARD_HEADER_HEIGHT + execCount * PRINT.EXEC_ROW_HEIGHT + PRINT.LIST_PADDING;
     }
@@ -332,7 +335,7 @@ function PrintNode({
                   <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '2px 10px', fontSize: 10 }}>
                     <span style={{ width: 6, height: 6, borderRadius: '50%', backgroundColor: STATUS_COLORS[dept.status], flexShrink: 0 }} />
                     <span style={{ opacity: 0.9, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                      {dept.title}
+                      {dept.personName || dept.title}
                       {subDepts.length > 0 && <span style={{ opacity: 0.5, marginLeft: 4 }}>({subDepts.length})</span>}
                     </span>
                   </div>
@@ -444,7 +447,7 @@ function PrintNode({
       <div style={{ padding: '10px 10px 10px 14px' }}>
         <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between' }}>
           <div style={{ fontSize: 11, fontWeight: 600, color: '#0f172a', lineHeight: 1.2, flex: 1 }}>
-            {node.title}
+            {node.personName || node.title}
           </div>
           <span
             style={{
@@ -459,7 +462,7 @@ function PrintNode({
           />
         </div>
         {node.personName ? (
-          <div style={{ fontSize: 10, color: '#64748b', marginTop: 3 }}>{formatPersonDisplay(node.personTitle, node.personName)}</div>
+          <div style={{ fontSize: 10, color: '#64748b', marginTop: 3 }}>{node.title}</div>
         ) : (
           <div style={{ fontSize: 10, color: '#cbd5e1', marginTop: 3, fontStyle: 'italic' }}>—</div>
         )}
@@ -627,7 +630,12 @@ export function PrintableOrgChart({ nodes, churchName, title }: PrintableOrgChar
             : undefined;
 
           const embeddedExecs = (node.category === 'executive-leadership' || node.category === 'senior-leadership')
-            ? nodes.filter(n => n.parentId === node.id && embeddedDeptIds.has(n.id)).sort((a, b) => a.order - b.order)
+            ? (() => {
+                const directEmbedded = nodes.filter(n => n.parentId === node.id && embeddedDeptIds.has(n.id));
+                const directIds = new Set(directEmbedded.map(n => n.id));
+                const grandchildren = nodes.filter(n => n.parentId && directIds.has(n.parentId) && embeddedDeptIds.has(n.id));
+                return [...directEmbedded, ...grandchildren].sort((a, b) => a.order - b.order);
+              })()
             : [];
 
           const embeddedSubDepts = node.category === 'department'

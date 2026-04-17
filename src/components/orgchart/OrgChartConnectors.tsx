@@ -80,9 +80,14 @@ export function OrgChartConnectors({
         effectiveHeight = SCREEN.DARK_CARD_HEADER_HEIGHT;
       }
     } else if (parentNode?.category === 'executive-leadership') {
-      const execCount = allNodes.filter(
+      const directEmbedded = allNodes.filter(
         n => n.parentId === effectiveParentId && embeddedDeptIds.has(n.id)
-      ).length;
+      );
+      const directIds = new Set(directEmbedded.map(n => n.id));
+      const grandchildren = allNodes.filter(
+        n => n.parentId && directIds.has(n.parentId) && embeddedDeptIds.has(n.id)
+      );
+      const execCount = directEmbedded.length + grandchildren.length;
       if (execCount > 0) {
         effectiveHeight = SCREEN.DARK_CARD_HEADER_HEIGHT + execCount * SCREEN.EXEC_ROW_HEIGHT + SCREEN.LIST_PADDING;
       }

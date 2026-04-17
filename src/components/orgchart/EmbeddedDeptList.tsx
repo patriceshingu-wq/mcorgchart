@@ -1,5 +1,5 @@
 import React from 'react';
-import { Edit2, Info, Sparkles, ChevronRight, ChevronDown, Plus, Trash2 } from 'lucide-react';
+import { Edit2, Sparkles, ChevronRight, ChevronDown, Plus, Trash2 } from 'lucide-react';
 import type { OrgNode } from '../../types';
 import { STATUS_COLORS, CATEGORY_COLORS } from '../../types';
 
@@ -7,6 +7,7 @@ interface EmbeddedDeptListProps {
   depts: OrgNode[];
   programs?: OrgNode[];
   subDeptsByParent?: Map<string, OrgNode[]>;
+  membersByParent?: Map<string, OrgNode[]>;
   accentColor?: string;
   onEdit: (node: OrgNode) => void;
   onSelect: (id: string) => void;
@@ -16,7 +17,7 @@ interface EmbeddedDeptListProps {
   isAdmin?: boolean;
 }
 
-export function EmbeddedDeptList({ depts, programs = [], subDeptsByParent, accentColor, onEdit, onSelect, onAddChild, onDelete, onToggleCollapse, isAdmin = true }: EmbeddedDeptListProps) {
+export function EmbeddedDeptList({ depts, programs = [], subDeptsByParent, membersByParent, accentColor, onEdit, onSelect, onAddChild, onDelete, onToggleCollapse, isAdmin = true }: EmbeddedDeptListProps) {
   if (depts.length === 0 && programs.length === 0) return null;
 
   const programColor = CATEGORY_COLORS['program']; // bright green
@@ -32,8 +33,8 @@ export function EmbeddedDeptList({ depts, programs = [], subDeptsByParent, accen
         return (
           <div key={dept.id}>
             <div
-              className="flex items-center gap-2 px-3 py-1 hover:bg-white/10 rounded mx-1 transition-colors group/row"
-              onClick={e => e.stopPropagation()}
+              className="flex items-center gap-2 px-3 py-1 hover:bg-white/10 rounded mx-1 transition-colors cursor-pointer group/row"
+              onClick={e => { e.stopPropagation(); onSelect(dept.id); }}
             >
               {/* Status dot - solid for departments */}
               <span
@@ -41,9 +42,13 @@ export function EmbeddedDeptList({ depts, programs = [], subDeptsByParent, accen
                 style={{ width: 7, height: 7, backgroundColor: STATUS_COLORS[dept.status] }}
               />
               <div className="flex-1 min-w-0">
-                <div className="text-[11px] font-medium text-white/90 truncate">{dept.title}</div>
-                {dept.personName && (
-                  <div className="text-[9px] text-white/50 truncate">{dept.personName}</div>
+                {dept.personName ? (
+                  <>
+                    <div className="text-[11px] font-medium text-white/90 truncate">{dept.personName}</div>
+                    <div className="text-[9px] text-white/50 truncate">{dept.title}</div>
+                  </>
+                ) : (
+                  <div className="text-[11px] font-medium text-white/90 truncate">{dept.title}</div>
                 )}
               </div>
               {subDepts.length > 0 && (
@@ -78,53 +83,60 @@ export function EmbeddedDeptList({ depts, programs = [], subDeptsByParent, accen
                   )}
                 </>
               )}
-              <button
-                onClick={e => { e.stopPropagation(); onSelect(dept.id); }}
-                className="p-0.5 rounded text-white opacity-0 group-hover/row:opacity-100 hover:bg-white/10 transition-opacity"
-                title="View details"
-              >
-                <Info className="h-2.5 w-2.5" />
-              </button>
             </div>
             {/* Teams / sub-departments */}
             {subDepts.length > 0 && !dept.isCollapsed && (
               <div className="ml-4 border-l border-white/10 pl-2 my-0.5">
-                {subDepts.map(subDept => (
-                  <div
-                    key={subDept.id}
-                    className="flex items-center gap-2 px-2 py-0.5 hover:bg-white/10 rounded transition-colors group/subrow"
-                    onClick={e => e.stopPropagation()}
-                  >
-                    <ChevronRight className="h-2 w-2 text-white/30 flex-shrink-0" />
-                    <span
-                      className="flex-shrink-0 rounded-full"
-                      style={{ width: 5, height: 5, backgroundColor: STATUS_COLORS[subDept.status] }}
-                    />
-                    <div className="flex-1 min-w-0">
-                      <div className="text-[10px] text-white/70 truncate">{subDept.title}</div>
-                    </div>
-                    {isAdmin && (
-                      <>
-                        <button
-                          onClick={e => { e.stopPropagation(); onEdit(subDept); }}
-                          className="p-0.5 rounded text-white opacity-0 group-hover/subrow:opacity-100 hover:bg-white/10 transition-opacity"
-                          title="Edit team"
-                        >
-                          <Edit2 className="h-2 w-2" />
-                        </button>
-                        {onDelete && (
-                          <button
-                            onClick={e => { e.stopPropagation(); onDelete(subDept); }}
-                            className="p-0.5 rounded text-white opacity-0 group-hover/subrow:opacity-100 hover:text-rose-400 hover:bg-white/10 transition-opacity"
-                            title="Delete team"
-                          >
-                            <Trash2 className="h-2 w-2" />
-                          </button>
+                {subDepts.map(subDept => {
+                  const members = membersByParent?.get(subDept.id) || [];
+                  return (
+                    <div key={subDept.id}>
+                      <div
+                        className="flex items-center gap-2 px-2 py-0.5 hover:bg-white/10 rounded transition-colors cursor-pointer group/subrow"
+                        onClick={e => { e.stopPropagation(); onSelect(subDept.id); }}
+                      >
+                        <ChevronRight className="h-2 w-2 text-white/30 flex-shrink-0" />
+                        <span
+                          className="flex-shrink-0 rounded-full"
+                          style={{ width: 5, height: 5, backgroundColor: STATUS_COLORS[subDept.status] }}
+                        />
+                        <div className="flex-1 min-w-0">
+                          {subDept.personName ? (
+                            <>
+                              <div className="text-[10px] text-white/70 truncate">{subDept.personName}</div>
+                              <div className="text-[8px] text-white/40 truncate">{subDept.title}</div>
+                            </>
+                          ) : (
+                            <div className="text-[10px] text-white/70 truncate">{subDept.title}</div>
+                          )}
+                        </div>
+                        {members.length > 0 && (
+                          <span className="text-[8px] text-white/30 flex-shrink-0">{members.length}</span>
                         )}
-                      </>
-                    )}
-                  </div>
-                ))}
+                        {isAdmin && (
+                          <>
+                            <button
+                              onClick={e => { e.stopPropagation(); onEdit(subDept); }}
+                              className="p-0.5 rounded text-white opacity-0 group-hover/subrow:opacity-100 hover:bg-white/10 transition-opacity"
+                              title="Edit team"
+                            >
+                              <Edit2 className="h-2 w-2" />
+                            </button>
+                            {onDelete && (
+                              <button
+                                onClick={e => { e.stopPropagation(); onDelete(subDept); }}
+                                className="p-0.5 rounded text-white opacity-0 group-hover/subrow:opacity-100 hover:text-rose-400 hover:bg-white/10 transition-opacity"
+                                title="Delete team"
+                              >
+                                <Trash2 className="h-2 w-2" />
+                              </button>
+                            )}
+                          </>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
             )}
           </div>
@@ -150,8 +162,8 @@ export function EmbeddedDeptList({ depts, programs = [], subDeptsByParent, accen
           {programs.map(prog => (
             <div
               key={prog.id}
-              className="flex items-center gap-2 px-3 py-1 hover:bg-white/10 transition-colors group/row"
-              onClick={e => e.stopPropagation()}
+              className="flex items-center gap-2 px-3 py-1 hover:bg-white/10 transition-colors cursor-pointer group/row"
+              onClick={e => { e.stopPropagation(); onSelect(prog.id); }}
             >
               {/* Program indicator - diamond shape */}
               <span
@@ -163,9 +175,13 @@ export function EmbeddedDeptList({ depts, programs = [], subDeptsByParent, accen
                 }}
               />
               <div className="flex-1 min-w-0">
-                <div className="text-[11px] font-medium text-white/90 truncate">{prog.title}</div>
-                {prog.personName && (
-                  <div className="text-[9px] text-white/50 truncate">{prog.personName}</div>
+                {prog.personName ? (
+                  <>
+                    <div className="text-[11px] font-medium text-white/90 truncate">{prog.personName}</div>
+                    <div className="text-[9px] text-white/50 truncate">{prog.title}</div>
+                  </>
+                ) : (
+                  <div className="text-[11px] font-medium text-white/90 truncate">{prog.title}</div>
                 )}
               </div>
               {isAdmin && (
@@ -177,13 +193,6 @@ export function EmbeddedDeptList({ depts, programs = [], subDeptsByParent, accen
                   <Edit2 className="h-2.5 w-2.5" />
                 </button>
               )}
-              <button
-                onClick={e => { e.stopPropagation(); onSelect(prog.id); }}
-                className="p-0.5 rounded text-white opacity-0 group-hover/row:opacity-100 hover:bg-white/10 transition-opacity"
-                title="View details"
-              >
-                <Info className="h-2.5 w-2.5" />
-              </button>
             </div>
           ))}
         </div>

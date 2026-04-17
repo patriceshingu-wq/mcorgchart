@@ -51,9 +51,13 @@ export function NodeDetailSheet({ node, nodes, t, onEdit, onDelete, onSelectNode
             <div style={{ height: 4, backgroundColor: categoryColor, flexShrink: 0 }} />
 
             <SheetHeader>
-              <SheetTitle className="pr-8">{node.title}</SheetTitle>
-              {node.personName && (
-                <p className="text-sm text-slate-500 mt-0.5">{node.personName}</p>
+              {node.personName ? (
+                <>
+                  <SheetTitle className="pr-8">{node.personName}</SheetTitle>
+                  <p className="text-sm text-slate-500 mt-0.5">{node.title}</p>
+                </>
+              ) : (
+                <SheetTitle className="pr-8">{node.title}</SheetTitle>
               )}
             </SheetHeader>
 
@@ -104,16 +108,35 @@ export function NodeDetailSheet({ node, nodes, t, onEdit, onDelete, onSelectNode
                   {t.directReports} ({directReports.length})
                 </p>
                 {directReports.length > 0 ? (
-                  <div className="flex flex-wrap gap-1.5">
-                    {directReports.map(r => (
-                      <button
-                        key={r.id}
-                        onClick={() => onSelectNode(r.id)}
-                        className="text-xs px-2 py-1 bg-slate-100 hover:bg-slate-200 rounded-md text-slate-700 transition-colors text-left"
-                      >
-                        {r.title}
-                      </button>
-                    ))}
+                  <div className="flex flex-col gap-1">
+                    {directReports
+                      .sort((a, b) => a.order - b.order)
+                      .map(r => {
+                        const childCount = nodes.filter(n => n.parentId === r.id).length;
+                        return (
+                          <button
+                            key={r.id}
+                            onClick={() => onSelectNode(r.id)}
+                            className="flex items-center gap-2 text-left text-xs px-2.5 py-1.5 bg-slate-50 hover:bg-slate-100 rounded-md text-slate-700 transition-colors"
+                          >
+                            <span
+                              className="flex-shrink-0 rounded-full"
+                              style={{ width: 6, height: 6, backgroundColor: STATUS_COLORS[r.status] }}
+                            />
+                            <div className="flex-1 min-w-0">
+                              <div className="font-medium truncate">
+                                {r.personName || r.title}
+                              </div>
+                              {r.personName && (
+                                <div className="text-[10px] text-slate-400 truncate">{r.title}</div>
+                              )}
+                            </div>
+                            {childCount > 0 && (
+                              <span className="text-[10px] text-slate-400 flex-shrink-0">{childCount}</span>
+                            )}
+                          </button>
+                        );
+                      })}
                   </div>
                 ) : (
                   <span className="text-sm text-slate-400">—</span>

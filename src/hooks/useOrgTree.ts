@@ -1,5 +1,6 @@
 import { useMemo } from 'react';
 import type { OrgNode, NodePosition, FilterState } from '../types';
+import { SCREEN } from '../constants/layout';
 
 // Shared layout constants (screen)
 export const NODE_WIDTH = 220;
@@ -23,6 +24,7 @@ export function computeEmbeddedSets(nodes: OrgNode[]): {
   embeddedDeptIds: Set<string>;
   embeddedProgramIds: Set<string>;
   embeddedSubDeptIds: Set<string>;
+  subDeptContainerIds: Set<string>;
 } {
   const ministryIds = new Set(
     nodes.filter(n => n.category === 'ministry-system').map(n => n.id)
@@ -52,16 +54,31 @@ export function computeEmbeddedSets(nodes: OrgNode[]): {
     .filter(n => n.category === 'program' && n.parentId !== null && ministryIds.has(n.parentId!))
     .map(n => n.id);
 
-  // Executive-leadership leaf nodes embedded in executive-leadership parent cards.
-  // Only embed nodes with no children of their own (individual executives, not team/org nodes).
-  const execIds = nodes
-    .filter(n => {
-      if (n.category !== 'executive-leadership') return false;
-      if (!n.parentId || !execLeadershipIds.has(n.parentId)) return false;
-      const hasChildren = nodeIdsWithChildren.has(n.id);
-      return !hasChildren;
-    })
-    .map(n => n.id);
+  // Nodes embedded in executive-leadership parent cards:
+  // 1. Executive-leadership leaf nodes (individual executives)
+  // 2. Department/team nodes that are NOT ministry-systems (e.g. "Mid-Week Service", individual volunteers)
+  //    These would otherwise float as disconnected cards.
+  // Also embed any children of those embedded dept/team nodes (e.g. people under Mid-Week Service).
+  const execIds: string[] = [];
+  const execEmbeddedDeptIds: string[] = [];
+  for (const n of nodes) {
+    if (!n.parentId || !execLeadershipIds.has(n.parentId)) continue;
+    if (n.category === 'ministry-system') continue; // ministries get their own cards
+    if (n.category === 'executive-leadership') {
+      if (!nodeIdsWithChildren.has(n.id)) execIds.push(n.id);
+    } else {
+      // Embed non-ministry children (departments, teams) into the exec card
+      execIds.push(n.id);
+      execEmbeddedDeptIds.push(n.id);
+    }
+  }
+  // Also embed children of embedded dept/team nodes under exec-leadership
+  const execEmbeddedDeptIdSet = new Set(execEmbeddedDeptIds);
+  for (const n of nodes) {
+    if (n.parentId && execEmbeddedDeptIdSet.has(n.parentId)) {
+      execIds.push(n.id);
+    }
+  }
 
   // Senior-leadership leaf nodes embedded in the senior-leadership parent card.
   const seniorIds = nodes
@@ -74,19 +91,30 @@ export function computeEmbeddedSets(nodes: OrgNode[]): {
     .map(n => n.id);
 
   // Sub-departments and teams embedded in department cards
+  // Also include their children (volunteers under sub-departments like Ushers, Greeters, etc.)
   const deptIdSet = new Set(deptIds);
-  const subDeptIds = nodes
+  const subDeptNodes = nodes
     .filter(n =>
       n.parentId !== null &&
       deptIdSet.has(n.parentId!) &&
       (n.category === 'department' || n.category === 'team')
-    )
-    .map(n => n.id);
+    );
+  const subDeptIdSet = new Set(subDeptNodes.map(n => n.id));
+  // Children of sub-departments (volunteers/team members under embedded sub-depts)
+  const subDeptChildren = nodes
+    .filter(n =>
+      n.parentId !== null &&
+      subDeptIdSet.has(n.parentId!)
+    );
+  const subDeptIds = [...subDeptNodes.map(n => n.id), ...subDeptChildren.map(n => n.id)];
+  // Keep track of just the sub-dept containers (not their volunteer children) for height calculations
+  const subDeptContainerIds = subDeptNodes.map(n => n.id);
 
   return {
     embeddedDeptIds: new Set([...deptIds, ...execIds, ...seniorIds]),
     embeddedProgramIds: new Set(programIds),
     embeddedSubDeptIds: new Set(subDeptIds),
+    subDeptContainerIds: new Set(subDeptContainerIds),
   };
 }
 
@@ -139,8 +167,95 @@ function subtreeWidth(
   return Math.max(nodeWidth, total + H_GAP * (children.length - 1));
 }
 
-// Get the effective height of a node
-function getNodeEffectiveHeight(_nodeId: string): number {
+// Get the effective height of a node, accounting for embedded content in dark cards
+function getNodeEffectiveHeight(
+  nodes: OrgNode[],
+  nodeId: string,
+  embeddedDeptIds: Set<string>,
+  embeddedProgramIds: Set<string>,
+  embeddedSubDeptIds: Set<string>,
+  subDeptContainerIds?: Set<string>,
+): number {
+  const node = nodes.find(n => n.id === nodeId);
+  if (!node) return NODE_HEIGHT;
+
+  // Ministry-system cards with embedded depts/programs
+  if (node.category === 'ministry-system') {
+    const embeddedDepts = nodes.filter(
+      n => n.parentId === nodeId && embeddedDeptIds.has(n.id)
+    );
+    const deptCount = embeddedDepts.length;
+    const programCount = nodes.filter(
+      n => n.parentId === nodeId && embeddedProgramIds.has(n.id)
+    ).length;
+
+    if (deptCount > 0 || programCount > 0) {
+      let listHeight = 0;
+      for (const dept of embeddedDepts) {
+        // Each dept row has a name line, and if person assigned, a second line for the role
+        listHeight += dept.personName ? SCREEN.DEPT_ROW_HEIGHT + 10 : SCREEN.DEPT_ROW_HEIGHT;
+        if (!dept.isCollapsed) {
+          // Only count sub-dept containers for height, not their volunteer children
+          const subDeptFilter = subDeptContainerIds ?? embeddedSubDeptIds;
+          const subDepts = nodes.filter(
+            n => n.parentId === dept.id && subDeptFilter.has(n.id)
+          );
+          if (subDepts.length > 0) {
+            let subHeight = SCREEN.SUBDEPT_CONTAINER_PADDING;
+            for (const sub of subDepts) {
+              subHeight += sub.personName ? SCREEN.SUBDEPT_ROW_HEIGHT + 8 : SCREEN.SUBDEPT_ROW_HEIGHT;
+            }
+            listHeight += subHeight;
+          }
+        }
+      }
+      if (programCount > 0) {
+        listHeight += SCREEN.PROGRAM_HEADER_HEIGHT + programCount * SCREEN.PROGRAM_ROW_HEIGHT + 8;
+      }
+      return SCREEN.DARK_CARD_HEADER_HEIGHT + listHeight + SCREEN.LIST_PADDING;
+    }
+    return SCREEN.DARK_CARD_HEADER_HEIGHT;
+  }
+
+  // Executive-leadership cards with embedded execs
+  if (node.category === 'executive-leadership') {
+    const directEmbedded = nodes.filter(
+      n => n.parentId === nodeId && embeddedDeptIds.has(n.id)
+    );
+    const directIds = new Set(directEmbedded.map(n => n.id));
+    const grandchildren = nodes.filter(
+      n => n.parentId && directIds.has(n.parentId) && embeddedDeptIds.has(n.id)
+    );
+    const execCount = directEmbedded.length + grandchildren.length;
+    if (execCount > 0) {
+      return SCREEN.DARK_CARD_HEADER_HEIGHT + execCount * SCREEN.EXEC_ROW_HEIGHT + SCREEN.LIST_PADDING;
+    }
+  }
+
+  // Senior-leadership cards with embedded members
+  if (node.category === 'senior-leadership') {
+    const seniorCount = nodes.filter(
+      n => n.parentId === nodeId && embeddedDeptIds.has(n.id)
+    ).length;
+    if (seniorCount > 0) {
+      return SCREEN.DARK_CARD_HEADER_HEIGHT + seniorCount * SCREEN.SENIOR_ROW_HEIGHT + SCREEN.LIST_PADDING;
+    }
+  }
+
+  // Department cards with sub-depts (dark cards)
+  if (node.category === 'department') {
+    const subDepts = nodes.filter(
+      n => n.parentId === nodeId && embeddedSubDeptIds.has(n.id)
+    );
+    if (subDepts.length > 0) {
+      let listHeight = 0;
+      for (const sub of subDepts) {
+        listHeight += sub.personName ? SCREEN.SUBDEPT_ROW_HEIGHT + 8 : SCREEN.SUBDEPT_ROW_HEIGHT;
+      }
+      return SCREEN.DARK_CARD_HEADER_HEIGHT + listHeight + SCREEN.LIST_PADDING;
+    }
+  }
+
   return NODE_HEIGHT;
 }
 
@@ -163,10 +278,12 @@ function assignPositions(
   embeddedDeptIds: Set<string>,
   embeddedProgramIds: Set<string>,
   embeddedSubDeptIds: Set<string>,
+  subDeptContainerIds?: Set<string>,
 ) {
   const nodeWidth = getNodeWidth(nodes, nodeId);
   const x = centerX - nodeWidth / 2;
-  positions.set(nodeId, { id: nodeId, x, y: currentY, width: nodeWidth, height: NODE_HEIGHT });
+  const effectiveHeight = getNodeEffectiveHeight(nodes, nodeId, embeddedDeptIds, embeddedProgramIds, embeddedSubDeptIds, subDeptContainerIds);
+  positions.set(nodeId, { id: nodeId, x, y: currentY, width: nodeWidth, height: effectiveHeight });
 
   const children = getVisibleChildren(nodes, nodeId, embeddedDeptIds, embeddedProgramIds, embeddedSubDeptIds);
   if (children.length === 0) return;
@@ -175,12 +292,12 @@ function assignPositions(
     + H_GAP * (children.length - 1);
 
   // Calculate Y for children based on this node's effective height
-  const childY = currentY + getNodeEffectiveHeight(nodeId) + V_GAP;
+  const childY = currentY + effectiveHeight + V_GAP;
 
   let cursor = centerX - totalW / 2;
   for (const child of children) {
     const cw = subtreeWidth(nodes, child.id, embeddedDeptIds, embeddedProgramIds, embeddedSubDeptIds);
-    assignPositions(nodes, child.id, cursor + cw / 2, childY, positions, embeddedDeptIds, embeddedProgramIds, embeddedSubDeptIds);
+    assignPositions(nodes, child.id, cursor + cw / 2, childY, positions, embeddedDeptIds, embeddedProgramIds, embeddedSubDeptIds, subDeptContainerIds);
     cursor += cw + H_GAP;
   }
 }
@@ -191,6 +308,7 @@ export function computeLayout(
   embeddedDeptIds: Set<string>,
   embeddedProgramIds: Set<string>,
   embeddedSubDeptIds: Set<string>,
+  subDeptContainerIds?: Set<string>,
 ): Map<string, NodePosition> {
   const positions = new Map<string, NodePosition>();
   if (rootNodes.length === 0) return positions;
@@ -200,7 +318,7 @@ export function computeLayout(
   if (rootNodes.length === 1) {
     const root = rootNodes[0];
     const totalW = subtreeWidth(nodes, root.id, embeddedDeptIds, embeddedProgramIds, embeddedSubDeptIds);
-    assignPositions(nodes, root.id, totalW / 2 + H_GAP, startY, positions, embeddedDeptIds, embeddedProgramIds, embeddedSubDeptIds);
+    assignPositions(nodes, root.id, totalW / 2 + H_GAP, startY, positions, embeddedDeptIds, embeddedProgramIds, embeddedSubDeptIds, subDeptContainerIds);
   } else {
     // Multiple roots: space them like siblings
     const totalW = rootNodes.reduce((s, r) => s + subtreeWidth(nodes, r.id, embeddedDeptIds, embeddedProgramIds, embeddedSubDeptIds), 0)
@@ -208,7 +326,7 @@ export function computeLayout(
     let cursor = H_GAP;
     for (const root of rootNodes) {
       const rw = subtreeWidth(nodes, root.id, embeddedDeptIds, embeddedProgramIds, embeddedSubDeptIds);
-      assignPositions(nodes, root.id, cursor + rw / 2, startY, positions, embeddedDeptIds, embeddedProgramIds, embeddedSubDeptIds);
+      assignPositions(nodes, root.id, cursor + rw / 2, startY, positions, embeddedDeptIds, embeddedProgramIds, embeddedSubDeptIds, subDeptContainerIds);
       cursor += rw + H_GAP;
     }
     void totalW;
@@ -254,7 +372,7 @@ function getDescendantIds(nodes: OrgNode[], nodeId: string): string[] {
 
 export function useOrgTree(nodes: OrgNode[], filters: FilterState) {
   return useMemo(() => {
-    const { embeddedDeptIds, embeddedProgramIds, embeddedSubDeptIds } = computeEmbeddedSets(nodes);
+    const { embeddedDeptIds, embeddedProgramIds, embeddedSubDeptIds, subDeptContainerIds } = computeEmbeddedSets(nodes);
     const hasActiveFilter = Boolean(
       filters.search || filters.category || filters.language || filters.status
     );
@@ -269,6 +387,7 @@ export function useOrgTree(nodes: OrgNode[], filters: FilterState) {
         embeddedDeptIds,
         embeddedProgramIds,
         embeddedSubDeptIds,
+        subDeptContainerIds,
       };
     }
 
@@ -300,6 +419,6 @@ export function useOrgTree(nodes: OrgNode[], filters: FilterState) {
       .filter(n => !n.parentId || !visibleIds.has(n.parentId ?? ''))
       .sort((a, b) => a.order - b.order);
 
-    return { visibleNodes, rootNodes, matchingIds, hasActiveFilter: true, embeddedDeptIds, embeddedProgramIds, embeddedSubDeptIds };
+    return { visibleNodes, rootNodes, matchingIds, hasActiveFilter: true, embeddedDeptIds, embeddedProgramIds, embeddedSubDeptIds, subDeptContainerIds };
   }, [nodes, filters]);
 }
