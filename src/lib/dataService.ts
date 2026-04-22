@@ -1,6 +1,106 @@
 import { supabase, isSupabaseConfigured } from './supabase';
-import type { OrgNode, AppSettings } from '../types';
+import type { OrgNode, AppSettings, AuditLogEntry } from '../types';
 import { SEED_NODES, DEFAULT_SETTINGS } from '../data/seedData';
+
+// ============ AUDIT LOGGING ============
+
+interface AuditLogEntry {
+  node_id: string;
+  operation: 'INSERT' | 'UPDATE' | 'DELETE';
+  user_id?: string;
+  user_email?: string;
+  old_values?: Record<string, unknown>;
+  new_values?: Record<string, unknown>;
+  change_summary: string;
+}
+
+/**
+ * Log a change to the audit log table
+ * This function is fail-safe - if logging fails, it won't throw an error
+ */
+async function logAuditEntry(entry: AuditLogEntry): Promise<void> {
+  // Only log when Supabase is configured
+  if (!isSupabaseConfigured() || !supabase) {
+    return;
+  }
+
+  try {
+    // Get current user session
+    const { data: { session } } = await supabase.auth.getSession();
+
+    const auditEntry = {
+      node_id: entry.node_id,
+      operation: entry.operation,
+      user_id: session?.user?.id || entry.user_id,
+      user_email: session?.user?.email || entry.user_email || 'system',
+      old_values: entry.old_values || null,
+      new_values: entry.new_values || null,
+      change_summary: entry.change_summary,
+    };
+
+    const { error } = await supabase
+      .from('org_nodes_audit_log')
+      .insert(auditEntry);
+
+    if (error) {
+      console.warn('Failed to log audit entry:', error);
+      // Don't throw - audit logging failure shouldn't break the application
+    }
+  } catch (error) {
+    console.warn('Error in audit logging:', error);
+    // Don't throw - audit logging failure shouldn't break the application
+  }
+}
+
+/**
+ * Generate a human-readable summary of changes between old and new node
+ */
+function generateChangeSummary(oldNode: OrgNode | null, newNode: OrgNode | null): string {
+  if (!oldNode && newNode) {
+    return `Created node: ${newNode.title}${newNode.personName ? ' - ' + newNode.personName : ''}`;
+  }
+
+  if (oldNode && !newNode) {
+    return `Deleted node: ${oldNode.title}${oldNode.personName ? ' - ' + oldNode.personName : ''}`;
+  }
+
+  if (oldNode && newNode) {
+    const changes: string[] = [];
+
+    if (oldNode.title !== newNode.title) {
+      changes.push(`title: "${oldNode.title}" → "${newNode.title}"`);
+    }
+    if (oldNode.personName !== newNode.personName) {
+      changes.push(`person: "${oldNode.personName || '(none)'}" → "${newNode.personName || '(none)'}"`);
+    }
+    if (oldNode.personTitle !== newNode.personTitle) {
+      changes.push(`person title: "${oldNode.personTitle || '(none)'}" → "${newNode.personTitle || '(none)'}"`);
+    }
+    if (oldNode.description !== newNode.description) {
+      changes.push(`description updated`);
+    }
+    if (oldNode.category !== newNode.category) {
+      changes.push(`category: "${oldNode.category}" → "${newNode.category}"`);
+    }
+    if (oldNode.parentId !== newNode.parentId) {
+      changes.push(`parent: "${oldNode.parentId || '(none)'}" → "${newNode.parentId || '(none)'}"`);
+    }
+    if (oldNode.order !== newNode.order) {
+      changes.push(`order: ${oldNode.order} → ${newNode.order}`);
+    }
+    if (oldNode.isCollapsed !== newNode.isCollapsed) {
+      changes.push(`collapsed: ${oldNode.isCollapsed} → ${newNode.isCollapsed}`);
+    }
+
+    if (changes.length === 0) {
+      return `No changes to ${newNode.title}`;
+    }
+
+    return `Updated ${newNode.title}: ${changes.join(', ')}`;
+  }
+
+  return 'Unknown change';
+}
 
 // Convert camelCase to snake_case for database
 function toSnakeCase(obj: OrgNode): Record<string, unknown> {
@@ -114,10 +214,25 @@ export async function saveNodes(nodes: OrgNode[]): Promise<void> {
 
             if (deleteError) {
               console.error('Error deleting removed nodes:', deleteError);
+            } else if (idsToDelete.length > 0) {
+              // Log bulk deletion
+              await logAuditEntry({
+                node_id: 'bulk-operation',
+                operation: 'DELETE',
+                change_summary: `Bulk delete: removed ${idsToDelete.length} node(s) [${idsToDelete.join(', ')}]`,
+              });
             }
           }
         }
       }
+
+      // Log bulk upsert operation (simplified to avoid noise)
+      // Note: Individual saveNode calls will have detailed logging
+      await logAuditEntry({
+        node_id: 'bulk-operation',
+        operation: 'UPDATE',
+        change_summary: `Bulk update: saved ${nodes.length} node(s) (e.g., undo/redo operation)`,
+      });
     }
     return;
   }
@@ -128,6 +243,17 @@ export async function saveNodes(nodes: OrgNode[]): Promise<void> {
 
 export async function saveNode(node: OrgNode): Promise<void> {
   if (isSupabaseConfigured() && supabase) {
+    // Check if this is an insert or update by fetching existing node
+    const { data: existingNode } = await supabase
+      .from('org_nodes')
+      .select('*')
+      .eq('id', node.id)
+      .single();
+
+    const oldNode = existingNode ? toCamelCase(existingNode) : null;
+    const operation = oldNode ? 'UPDATE' : 'INSERT';
+
+    // Perform the upsert
     const { error } = await supabase
       .from('org_nodes')
       .upsert(toSnakeCase(node));
@@ -136,6 +262,16 @@ export async function saveNode(node: OrgNode): Promise<void> {
       console.error('Error saving node:', error);
       throw error;
     }
+
+    // Log the change to audit log
+    await logAuditEntry({
+      node_id: node.id,
+      operation,
+      old_values: oldNode ? toSnakeCase(oldNode) : undefined,
+      new_values: toSnakeCase(node),
+      change_summary: generateChangeSummary(oldNode, node),
+    });
+
     return;
   }
 
@@ -152,6 +288,16 @@ export async function saveNode(node: OrgNode): Promise<void> {
 
 export async function deleteNode(nodeId: string): Promise<void> {
   if (isSupabaseConfigured() && supabase) {
+    // Fetch the node before deleting to log what was deleted
+    const { data: existingNode } = await supabase
+      .from('org_nodes')
+      .select('*')
+      .eq('id', nodeId)
+      .single();
+
+    const oldNode = existingNode ? toCamelCase(existingNode) : null;
+
+    // Perform the delete
     const { error } = await supabase
       .from('org_nodes')
       .delete()
@@ -161,6 +307,17 @@ export async function deleteNode(nodeId: string): Promise<void> {
       console.error('Error deleting node:', error);
       throw error;
     }
+
+    // Log the deletion to audit log
+    if (oldNode) {
+      await logAuditEntry({
+        node_id: nodeId,
+        operation: 'DELETE',
+        old_values: toSnakeCase(oldNode),
+        change_summary: generateChangeSummary(oldNode, null),
+      });
+    }
+
     return;
   }
 
@@ -239,6 +396,77 @@ export async function saveSettings(settings: AppSettings): Promise<void> {
 
   // Fallback to localStorage
   localStorage.setItem(STORAGE_KEYS.settings, JSON.stringify(settings));
+}
+
+// ============ AUDIT LOG QUERIES ============
+
+export interface AuditLogFilters {
+  nodeId?: string;
+  userId?: string;
+  operation?: 'INSERT' | 'UPDATE' | 'DELETE';
+  startDate?: string;
+  endDate?: string;
+  limit?: number;
+}
+
+export async function getAuditLogs(filters?: AuditLogFilters): Promise<AuditLogEntry[]> {
+  if (!isSupabaseConfigured() || !supabase) {
+    return [];
+  }
+
+  try {
+    let query = supabase
+      .from('org_nodes_audit_log')
+      .select('*')
+      .order('changed_at', { ascending: false });
+
+    if (filters?.nodeId) {
+      query = query.eq('node_id', filters.nodeId);
+    }
+
+    if (filters?.userId) {
+      query = query.eq('user_id', filters.userId);
+    }
+
+    if (filters?.operation) {
+      query = query.eq('operation', filters.operation);
+    }
+
+    if (filters?.startDate) {
+      query = query.gte('changed_at', filters.startDate);
+    }
+
+    if (filters?.endDate) {
+      query = query.lte('changed_at', filters.endDate);
+    }
+
+    if (filters?.limit) {
+      query = query.limit(filters.limit);
+    }
+
+    const { data, error } = await query;
+
+    if (error) {
+      console.error('Error fetching audit logs:', error);
+      return [];
+    }
+
+    // Map database snake_case to TypeScript camelCase
+    return (data || []).map((row) => ({
+      id: row.id,
+      nodeId: row.node_id,
+      operation: row.operation,
+      userId: row.user_id,
+      userEmail: row.user_email,
+      changedAt: row.changed_at,
+      oldValues: row.old_values,
+      newValues: row.new_values,
+      changeSummary: row.change_summary,
+    }));
+  } catch (error) {
+    console.error('Error in getAuditLogs:', error);
+    return [];
+  }
 }
 
 // ============ CONNECTION STATUS ============

@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import type { User } from '@supabase/supabase-js';
-import { supabase } from '../lib/supabase';
+import { supabase, isSupabaseConfigured } from '../lib/supabase';
 
 export type UserRole = 'admin' | 'viewer';
 
@@ -16,6 +16,16 @@ interface AuthContextValue {
 
 const AuthContext = createContext<AuthContextValue | null>(null);
 
+// Fake user for local/unauthenticated mode when Supabase is not configured
+const LOCAL_ADMIN_USER = {
+  id: 'local-admin',
+  email: 'admin@localhost',
+  app_metadata: { role: 'admin' },
+  user_metadata: {},
+  aud: 'authenticated',
+  created_at: new Date().toISOString(),
+} as unknown as User;
+
 // Extract role from user's app_metadata (set via Supabase dashboard or SQL)
 function getRoleFromUser(user: User | null): UserRole | null {
   if (!user) return null;
@@ -30,6 +40,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [needsPasswordSet, setNeedsPasswordSet] = useState(false);
 
   useEffect(() => {
+    // When Supabase is not configured, bypass auth and use local admin
+    if (!isSupabaseConfigured()) {
+      setUser(LOCAL_ADMIN_USER);
+      setRole('admin');
+      setLoading(false);
+      return;
+    }
+
     if (!supabase) {
       setLoading(false);
       return;
