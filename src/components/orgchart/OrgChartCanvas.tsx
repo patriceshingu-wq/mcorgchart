@@ -1,9 +1,9 @@
 import React, { useMemo, useRef, useState, useCallback } from 'react';
-import { ZoomIn, ZoomOut, Maximize2, ChevronDown, ChevronUp, List, BarChart2 } from 'lucide-react';
+import { ZoomIn, ZoomOut, Maximize2, ChevronDown, ChevronUp, List, BarChart2, Users, User, Type, UserCircle } from 'lucide-react';
 import { OrgChartNode } from './OrgChartNode';
 import { OrgChartConnectors } from './OrgChartConnectors';
 import { computeLayout, NODE_WIDTH, NODE_HEIGHT, H_GAP, V_GAP } from '../../hooks/useOrgTree';
-import type { OrgNode, ZoomLevel } from '../../types';
+import type { OrgNode, ZoomLevel, CardDisplayMode } from '../../types';
 import { ZOOM_LEVELS } from '../../types';
 import { cn } from '../../lib/utils';
 import type { TranslationKeys } from '../../data/translations';
@@ -18,6 +18,8 @@ interface OrgChartCanvasProps {
   embeddedProgramIds: Set<string>;
   embeddedSubDeptIds: Set<string>;
   subDeptContainerIds: Set<string>;
+  cardDisplayMode: CardDisplayMode;
+  onCardDisplayModeChange: (mode: CardDisplayMode) => void;
   zoomLevel: ZoomLevel;
   onZoomChange: (z: ZoomLevel) => void;
   selectedId: string | null;
@@ -29,8 +31,8 @@ interface OrgChartCanvasProps {
   onToggleCollapse: (id: string) => void;
   onCollapseAll: () => void;
   onExpandAll: () => void;
-  chartView: 'visual' | 'list';
-  onChartViewChange: (v: 'visual' | 'list') => void;
+  chartView: 'visual' | 'list' | 'leaders';
+  onChartViewChange: (v: 'visual' | 'list' | 'leaders') => void;
   t: TranslationKeys;
 }
 
@@ -44,6 +46,8 @@ export function OrgChartCanvas({
   embeddedProgramIds,
   embeddedSubDeptIds,
   subDeptContainerIds,
+  cardDisplayMode,
+  onCardDisplayModeChange,
   zoomLevel,
   onZoomChange,
   selectedId,
@@ -124,6 +128,16 @@ export function OrgChartCanvas({
             {t.chartView}
           </button>
           <button
+            onClick={() => onChartViewChange('leaders')}
+            className={cn(
+              'flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium transition-colors',
+              chartView === 'leaders' ? 'bg-slate-900 text-white' : 'text-slate-500 hover:bg-slate-50',
+            )}
+          >
+            <Users className="h-3 w-3" />
+            Leaders
+          </button>
+          <button
             onClick={() => onChartViewChange('list')}
             className={cn(
               'flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium transition-colors',
@@ -137,8 +151,32 @@ export function OrgChartCanvas({
 
         <div className="h-4 w-px bg-slate-200" />
 
-        {/* Zoom controls (only visual) */}
-        {chartView === 'visual' && (
+        {/* Display mode toggle */}
+        <div className="flex items-center border border-slate-200 rounded-lg overflow-hidden">
+          {([
+            { mode: 'title' as const, icon: Type, label: 'Title' },
+            { mode: 'name' as const, icon: User, label: 'Name' },
+            { mode: 'both' as const, icon: UserCircle, label: 'Both' },
+          ]).map(({ mode, icon: Icon, label }) => (
+            <button
+              key={mode}
+              onClick={() => onCardDisplayModeChange(mode)}
+              className={cn(
+                'flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium transition-colors',
+                cardDisplayMode === mode ? 'bg-slate-900 text-white' : 'text-slate-500 hover:bg-slate-50',
+              )}
+              title={label}
+            >
+              <Icon className="h-3 w-3" />
+              {label}
+            </button>
+          ))}
+        </div>
+
+        <div className="h-4 w-px bg-slate-200" />
+
+        {/* Zoom controls */}
+        {(chartView === 'visual' || chartView === 'leaders') && (
           <>
             <button
               onClick={() => canZoomOut && onZoomChange(ZOOM_LEVELS[zoomIdx - 1])}
@@ -317,6 +355,7 @@ export function OrgChartCanvas({
                       embeddedSubDepts={embeddedSubDepts}
                       subDeptsByParent={subDeptsByParent}
                       membersByParent={membersByParent}
+                      cardDisplayMode={cardDisplayMode}
                       isSelected={selectedId === node.id}
                       isMatching={matchingIds.has(node.id)}
                       hasActiveFilter={hasActiveFilter}

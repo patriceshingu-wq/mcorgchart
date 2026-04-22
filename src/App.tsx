@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useState, useCallback, useEffect, useMemo } from 'react';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { LoginPage } from './components/auth/LoginPage';
@@ -20,7 +20,7 @@ import { useSettings } from './hooks/useSettings';
 import { useTranslation } from './hooks/useTranslation';
 import { useOrgTree } from './hooks/useOrgTree';
 import { getDescendantIds } from './lib/utils';
-import type { ActivePage, FilterState, OrgNode, ZoomLevel, AppSettings } from './types';
+import type { ActivePage, FilterState, OrgNode, ZoomLevel, AppSettings, CardDisplayMode } from './types';
 
 const DEFAULT_FILTERS: FilterState = { search: '', category: '', language: '', status: '', includeSiblings: false };
 
@@ -41,7 +41,8 @@ function AppContent() {
   const [zoomLevel, setZoomLevel] = useState<ZoomLevel>(100);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
-  const [chartView, setChartView] = useState<'visual' | 'list'>('visual');
+  const [chartView, setChartView] = useState<'visual' | 'list' | 'leaders'>('visual');
+  const [cardDisplayMode, setCardDisplayMode] = useState<CardDisplayMode>('both');
 
   // Modal states
   const [formModal, setFormModal] = useState<{ open: boolean; node: OrgNode | null; defaultParentId?: string | null }>({ open: false, node: null });
@@ -49,6 +50,26 @@ function AppContent() {
   const [deleteDialog, setDeleteDialog] = useState<{ open: boolean; node: OrgNode | null }>({ open: false, node: null });
 
   const { visibleNodes, rootNodes, matchingIds, hasActiveFilter, embeddedDeptIds, embeddedProgramIds, embeddedSubDeptIds, subDeptContainerIds } = useOrgTree(nodes, filters);
+
+  // Leaders-only filtered nodes: only nodes with personName+personTitle, plus their ancestors
+  const leadersData = useMemo(() => {
+    if (chartView !== 'leaders') return { nodes: visibleNodes, rootNodes };
+    const leaderNodes = nodes.filter(n => n.personName && n.personTitle);
+    const leaderIds = new Set(leaderNodes.map(n => n.id));
+    // Add all ancestors
+    const allIds = new Set(leaderIds);
+    for (const id of leaderIds) {
+      let current = nodes.find(n => n.id === id);
+      while (current?.parentId) {
+        allIds.add(current.parentId);
+        current = nodes.find(n => n.id === current!.parentId);
+      }
+    }
+    const filtered = nodes.filter(n => allIds.has(n.id));
+    const roots = filtered.filter(n => !n.parentId || !allIds.has(n.parentId)).sort((a, b) => a.order - b.order);
+    return { nodes: filtered, rootNodes: roots };
+  }, [chartView, nodes, visibleNodes, rootNodes]);
+
   const selectedNode = nodes.find(n => n.id === selectedId) ?? null;
 
   // Handlers
@@ -313,17 +334,46 @@ function AppContent() {
           {activePage === 'org-chart' && (
             <>
               <div className="flex flex-col flex-1 overflow-hidden">
-                {chartView === 'visual' ? (
+                {chartView === 'list' ? (
+                  <div className="flex flex-col flex-1 overflow-hidden">
+                    {/* Toolbar reuse from OrgChartCanvas pattern */}
+                    <div className="flex items-center gap-2 px-4 py-2 border-b border-slate-100 flex-shrink-0 no-print">
+                      <div className="flex items-center border border-slate-200 rounded-lg overflow-hidden">
+                        {(['visual', 'leaders', 'list'] as const).map(v => (
+                          <button
+                            key={v}
+                            onClick={() => setChartView(v)}
+                            className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium transition-colors ${
+                              chartView === v ? 'bg-slate-900 text-white' : 'text-slate-500 hover:bg-slate-50'
+                            }`}
+                          >
+                            {v === 'visual' ? t.chartView : v === 'leaders' ? 'Leaders' : t.listView}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                    <NodeListTable
+                      nodes={visibleNodes}
+                      selectedId={selectedId}
+                      onSelectNode={handleSelectNode}
+                      onEdit={handleEdit}
+                      onDelete={handleDeleteRequest}
+                      t={t}
+                    />
+                  </div>
+                ) : (
                   <OrgChartCanvas
-                    nodes={nodes}
-                    visibleNodes={visibleNodes}
-                    rootNodes={rootNodes}
+                    nodes={chartView === 'leaders' ? leadersData.nodes : nodes}
+                    visibleNodes={chartView === 'leaders' ? leadersData.nodes : visibleNodes}
+                    rootNodes={chartView === 'leaders' ? leadersData.rootNodes : rootNodes}
                     matchingIds={matchingIds}
-                    hasActiveFilter={hasActiveFilter}
+                    hasActiveFilter={chartView === 'leaders' ? false : hasActiveFilter}
                     embeddedDeptIds={embeddedDeptIds}
                     embeddedProgramIds={embeddedProgramIds}
                     embeddedSubDeptIds={embeddedSubDeptIds}
                     subDeptContainerIds={subDeptContainerIds}
+                    cardDisplayMode={cardDisplayMode}
+                    onCardDisplayModeChange={setCardDisplayMode}
                     zoomLevel={zoomLevel}
                     onZoomChange={setZoomLevel}
                     selectedId={selectedId}
@@ -339,34 +389,6 @@ function AppContent() {
                     onChartViewChange={setChartView}
                     t={t}
                   />
-                ) : (
-                  <div className="flex flex-col flex-1 overflow-hidden">
-                    {/* Toolbar reuse from OrgChartCanvas pattern */}
-                    <div className="flex items-center gap-2 px-4 py-2 border-b border-slate-100 flex-shrink-0 no-print">
-                      <div className="flex items-center border border-slate-200 rounded-lg overflow-hidden">
-                        <button
-                          onClick={() => setChartView('visual')}
-                          className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-slate-500 hover:bg-slate-50 transition-colors"
-                        >
-                          {t.chartView}
-                        </button>
-                        <button
-                          onClick={() => setChartView('list')}
-                          className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-slate-900 text-white transition-colors"
-                        >
-                          {t.listView}
-                        </button>
-                      </div>
-                    </div>
-                    <NodeListTable
-                      nodes={visibleNodes}
-                      selectedId={selectedId}
-                      onSelectNode={handleSelectNode}
-                      onEdit={handleEdit}
-                      onDelete={handleDeleteRequest}
-                      t={t}
-                    />
-                  </div>
                 )}
               </div>
 

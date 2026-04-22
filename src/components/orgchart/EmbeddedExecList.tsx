@@ -1,7 +1,8 @@
 import React from 'react';
 import { Edit2, Info } from 'lucide-react';
-import type { OrgNode } from '../../types';
+import type { OrgNode, CardDisplayMode } from '../../types';
 import { CATEGORY_COLORS } from '../../types';
+import { getCardText } from '../../lib/utils';
 
 const LANGUAGE_LABELS: Record<OrgNode['language'], string> = {
   english: 'EN',
@@ -29,13 +30,14 @@ function formatPersonDisplay(personTitle: string | undefined, personName: string
 
 interface EmbeddedExecListProps {
   execs: OrgNode[];
+  cardDisplayMode?: CardDisplayMode;
   accentColor?: string;
   onEdit: (node: OrgNode) => void;
   onSelect: (id: string) => void;
   isAdmin?: boolean;
 }
 
-export function EmbeddedExecList({ execs, accentColor, onEdit, onSelect, isAdmin = true }: EmbeddedExecListProps) {
+export function EmbeddedExecList({ execs, cardDisplayMode = 'both', accentColor, onEdit, onSelect, isAdmin = true }: EmbeddedExecListProps) {
   if (execs.length === 0) return null;
 
   return (
@@ -65,10 +67,17 @@ export function EmbeddedExecList({ execs, accentColor, onEdit, onSelect, isAdmin
 
             {/* Role + person name */}
             <div className="flex-1 min-w-0">
-              <div className="text-[11px] font-semibold text-white/90 truncate">
-                {exec.personName ? formatPersonDisplay(exec.personTitle, exec.personName) : '—'}
-              </div>
-              <div className="text-[9px] text-white/50 truncate">{exec.title}</div>
+              {(() => {
+                const { primary, secondary } = getCardText(exec, cardDisplayMode);
+                return (
+                  <>
+                    <div className="text-[11px] font-semibold text-white/90 truncate">
+                      {primary || '—'}
+                    </div>
+                    {secondary && <div className="text-[9px] text-white/50 truncate">{secondary}</div>}
+                  </>
+                );
+              })()}
             </div>
 
             {/* Language badge */}

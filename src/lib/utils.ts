@@ -1,6 +1,6 @@
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
-import type { OrgNode } from '../types';
+import type { OrgNode, CardDisplayMode } from '../types';
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -64,6 +64,26 @@ export function flattenTree(nodes: OrgNode[], parentId: string | null = null, de
     result.push(...flattenTree(nodes, node.id, depth + 1));
   }
   return result;
+}
+
+/** Get display text for a node based on card display mode */
+export function getCardText(
+  node: { title: string; personName: string; personTitle?: string },
+  mode: CardDisplayMode,
+): { primary: string; secondary?: string } {
+  const hasName = !!node.personName;
+  switch (mode) {
+    case 'name':
+      return { primary: hasName ? node.personName : node.title };
+    case 'title':
+      return { primary: node.title };
+    case 'both':
+    default:
+      if (hasName) {
+        return { primary: node.title, secondary: node.personName };
+      }
+      return { primary: node.title };
+  }
 }
 
 export function formatExportDate(): string {
