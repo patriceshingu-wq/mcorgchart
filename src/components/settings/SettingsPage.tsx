@@ -15,6 +15,7 @@ import type { AppSettings } from '../../types';
 import type { TranslationKeys } from '../../data/translations';
 import { downloadFile, formatExportDate } from '../../lib/utils';
 import type { OrgNode } from '../../types';
+import { AuditLogViewer } from './AuditLogViewer';
 
 interface SettingsPageProps {
   settings: AppSettings;
@@ -199,6 +200,9 @@ export function SettingsPage({ settings, nodes, onUpdateSettings, t, onReset }: 
             </CardContent>
           </Card>
         )}
+
+        {/* Audit Log — admin only */}
+        {isAdmin && <AuditLogViewer />}
 
         {/* Church info */}
         <Card>

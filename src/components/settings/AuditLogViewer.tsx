@@ -1,13 +1,15 @@
 import { useEffect, useState } from 'react';
 import { useTranslation } from '../../hooks/useTranslation';
+import { useSettings } from '../../hooks/useSettings';
 import { getAuditLogs, type AuditLogFilters } from '../../lib/dataService';
 import type { AuditLogEntry } from '../../types';
-import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
-import { Select, SelectItem } from '../ui/select';
-import { Badge } from '../ui/badge';
+import { Card, CardContent, CardHeader, CardTitle } from '../ui/Card';
+import { Select, SelectItem } from '../ui/Select';
+import { Badge } from '../ui/Badge';
 
 export function AuditLogViewer() {
-  const { t } = useTranslation();
+  const { settings } = useSettings();
+  const t = useTranslation(settings.language);
   const [logs, setLogs] = useState<AuditLogEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [filters, setFilters] = useState<AuditLogFilters>({ limit: 50 });
@@ -55,11 +57,11 @@ export function AuditLogViewer() {
   function getOperationLabel(operation: string): string {
     switch (operation) {
       case 'INSERT':
-        return t('created');
+        return t.created;
       case 'UPDATE':
-        return t('updated');
+        return t.updated;
       case 'DELETE':
-        return t('deleted');
+        return t.deleted;
       default:
         return operation;
     }
@@ -68,7 +70,7 @@ export function AuditLogViewer() {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>{t('auditLog')}</CardTitle>
+        <CardTitle>{t.auditLog}</CardTitle>
       </CardHeader>
       <CardContent>
         <div className="mb-4 flex gap-4">
@@ -80,29 +82,29 @@ export function AuditLogViewer() {
                 operation: value === 'all' ? undefined : (value as 'INSERT' | 'UPDATE' | 'DELETE'),
               }))
             }
-            placeholder={t('filterByOperation')}
+            placeholder={t.filterByOperation}
             className="w-[200px]"
           >
-            <SelectItem value="all">{t('allOperations')}</SelectItem>
-            <SelectItem value="INSERT">{t('created')}</SelectItem>
-            <SelectItem value="UPDATE">{t('updated')}</SelectItem>
-            <SelectItem value="DELETE">{t('deleted')}</SelectItem>
+            <SelectItem value="all">{t.allOperations}</SelectItem>
+            <SelectItem value="INSERT">{t.created}</SelectItem>
+            <SelectItem value="UPDATE">{t.updated}</SelectItem>
+            <SelectItem value="DELETE">{t.deleted}</SelectItem>
           </Select>
         </div>
 
         {loading ? (
-          <div className="text-center py-8 text-muted-foreground">{t('loadingLogs')}</div>
+          <div className="text-center py-8 text-muted-foreground">{t.loadingLogs}</div>
         ) : logs.length === 0 ? (
-          <div className="text-center py-8 text-muted-foreground">{t('noAuditLogs')}</div>
+          <div className="text-center py-8 text-muted-foreground">{t.noAuditLogs}</div>
         ) : (
           <div className="rounded-md border">
             <table className="w-full">
               <thead>
                 <tr className="border-b bg-muted/50">
-                  <th className="p-3 text-left font-medium">{t('operation')}</th>
-                  <th className="p-3 text-left font-medium">{t('changedBy')}</th>
-                  <th className="p-3 text-left font-medium">{t('changedAt')}</th>
-                  <th className="p-3 text-left font-medium">{t('changes')}</th>
+                  <th className="p-3 text-left font-medium">{t.operation}</th>
+                  <th className="p-3 text-left font-medium">{t.changedBy}</th>
+                  <th className="p-3 text-left font-medium">{t.changedAt}</th>
+                  <th className="p-3 text-left font-medium">{t.changes}</th>
                 </tr>
               </thead>
               <tbody>

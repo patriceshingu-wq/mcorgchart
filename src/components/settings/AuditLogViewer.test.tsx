@@ -10,9 +10,14 @@ vi.mock('../../lib/dataService', () => ({
   getAuditLogs: (...args: unknown[]) => mockGetAuditLogs(...args),
 }));
 
+// Mock the settings hook
+vi.mock('../../hooks/useSettings', () => ({
+  useSettings: () => ({ settings: { language: 'en' } }),
+}));
+
 // Mock the translation hook
-const mockT = vi.fn((key: string) => {
-  const translations: Record<string, string> = {
+vi.mock('../../hooks/useTranslation', () => ({
+  useTranslation: () => ({
     auditLog: 'Audit Log',
     changeHistory: 'Change History',
     operation: 'Operation',
@@ -26,19 +31,14 @@ const mockT = vi.fn((key: string) => {
     loadingLogs: 'Loading logs...',
     filterByOperation: 'Filter by operation',
     allOperations: 'All Operations',
-  };
-  return translations[key] || key;
-});
-
-vi.mock('../../hooks/useTranslation', () => ({
-  useTranslation: () => ({ t: mockT }),
+  }),
 }));
 
 // Mock the Select component to make it testable
 // We need to capture the onValueChange callback and expose a way to trigger it
 let capturedOnValueChange: ((value: string) => void) | null = null;
 
-vi.mock('../ui/select', () => ({
+vi.mock('../ui/Select', () => ({
   Select: ({ value, onValueChange, children, className, placeholder }: any) => {
     // Capture the onValueChange callback so tests can trigger it
     capturedOnValueChange = onValueChange;
