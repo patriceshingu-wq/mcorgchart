@@ -38,7 +38,7 @@ vi.mock('../../hooks/useTranslation', () => ({
 // We need to capture the onValueChange callback and expose a way to trigger it
 let capturedOnValueChange: ((value: string) => void) | null = null;
 
-vi.mock('../ui/select', () => ({
+vi.mock('../ui/Select', () => ({
   Select: ({ value, onValueChange, children, className, placeholder }: any) => {
     // Capture the onValueChange callback so tests can trigger it
     capturedOnValueChange = onValueChange;

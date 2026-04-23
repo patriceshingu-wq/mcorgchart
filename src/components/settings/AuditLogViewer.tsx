@@ -3,9 +3,9 @@ import { useTranslation } from '../../hooks/useTranslation';
 import { useSettings } from '../../hooks/useSettings';
 import { getAuditLogs, type AuditLogFilters } from '../../lib/dataService';
 import type { AuditLogEntry } from '../../types';
-import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
-import { Select, SelectItem } from '../ui/select';
-import { Badge } from '../ui/badge';
+import { Card, CardContent, CardHeader, CardTitle } from '../ui/Card';
+import { Select, SelectItem } from '../ui/Select';
+import { Badge } from '../ui/Badge';
 
 export function AuditLogViewer() {
   const { settings } = useSettings();
