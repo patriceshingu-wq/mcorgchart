@@ -527,7 +527,10 @@ export async function inviteUser(email: string, role: 'admin' | 'viewer' = 'view
   return await callManageUsers('invite', { email, role });
 }
 
+export async function sendPasswordResetEmail(userId: string): Promise<void> {
+  await callManageUsers('resetPassword', { userId });
+}
+
 export async function deleteUser(userId: string): Promise<void> {
   await callManageUsers('delete', { userId });
 }
-
