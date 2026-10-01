@@ -10,6 +10,7 @@ interface AuthContextValue {
   loading: boolean;
   needsPasswordSet: boolean;
   signInWithEmail: (email: string, password: string) => Promise<string | null>;
+  requestPasswordReset: (email: string) => Promise<string | null>;
   updatePassword: (password: string) => Promise<string | null>;
   signOut: () => Promise<void>;
 }
@@ -84,10 +85,27 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return error?.message ?? null;
   }
 
+  async function requestPasswordReset(email: string): Promise<string | null> {
+    if (!supabase) return 'Not configured';
+    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: window.location.origin,
+    });
+    return error?.message ?? null;
+  }
+
   async function updatePassword(password: string): Promise<string | null> {
     if (!supabase) return 'Not configured';
     const { error } = await supabase.auth.updateUser({ password });
-    if (!error) setNeedsPasswordSet(false);
+    if (!error) {
+      setNeedsPasswordSet(false);
+      // Prevent a refresh from reopening the set-password screen with a used
+      // invite or recovery token still present in the URL.
+      window.history.replaceState(
+        null,
+        '',
+        `${window.location.pathname}${window.location.search}`,
+      );
+    }
     return error?.message ?? null;
   }
 
@@ -96,7 +114,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }
 
   return (
-    <AuthContext.Provider value={{ user, role, loading, needsPasswordSet, signInWithEmail, updatePassword, signOut }}>
+    <AuthContext.Provider value={{ user, role, loading, needsPasswordSet, signInWithEmail, requestPasswordReset, updatePassword, signOut }}>
       {children}
     </AuthContext.Provider>
   );
