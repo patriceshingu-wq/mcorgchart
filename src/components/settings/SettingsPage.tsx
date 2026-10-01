@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
-import { loadUsers, setUserRole, inviteUser, deleteUser } from '../../lib/dataService';
+import { loadUsers, setUserRole, inviteUser, sendPasswordResetEmail, deleteUser } from '../../lib/dataService';
 import type { UserRecord } from '../../lib/dataService';
 import { Card, CardHeader, CardTitle, CardContent } from '../ui/Card';
 import { Button } from '../ui/Button';
@@ -10,11 +10,12 @@ import {
   AlertDialogDescription, AlertDialogFooter, AlertDialogCancel, AlertDialogAction,
 } from '../ui/AlertDialog';
 import { useToast } from '../ui/Toast';
-import { Download, UserPlus, Trash2 } from 'lucide-react';
+import { Download, KeyRound, UserPlus, Trash2 } from 'lucide-react';
 import type { AppSettings } from '../../types';
 import type { TranslationKeys } from '../../data/translations';
 import { downloadFile, formatExportDate } from '../../lib/utils';
 import type { OrgNode } from '../../types';
+import { AuditLogViewer } from './AuditLogViewer';
 
 interface SettingsPageProps {
   settings: AppSettings;
@@ -37,6 +38,8 @@ export function SettingsPage({ settings, nodes, onUpdateSettings, t, onReset }: 
   const [inviteEmail, setInviteEmail] = useState('');
   const [inviteRole, setInviteRole] = useState<'admin' | 'viewer'>('viewer');
   const [inviting, setInviting] = useState(false);
+  const [passwordResetConfirm, setPasswordResetConfirm] = useState<UserRecord | null>(null);
+  const [resettingPasswordUserId, setResettingPasswordUserId] = useState<string | null>(null);
   const [deleteConfirm, setDeleteConfirm] = useState<UserRecord | null>(null);
 
   const fetchUsers = useCallback(async () => {
@@ -80,6 +83,26 @@ export function SettingsPage({ settings, nodes, onUpdateSettings, t, onReset }: 
       setInviting(false);
     }
   }, [inviteEmail, inviteRole, fetchUsers, showToast]);
+
+  const handlePasswordReset = useCallback(async () => {
+    if (!passwordResetConfirm) return;
+
+    const resetUser = passwordResetConfirm;
+    setPasswordResetConfirm(null);
+    setResettingPasswordUserId(resetUser.id);
+
+    try {
+      await sendPasswordResetEmail(resetUser.id);
+      showToast(`Password reset email sent to ${resetUser.email}`);
+    } catch (err) {
+      showToast(
+        err instanceof Error ? err.message : 'Failed to send password reset email',
+        'error',
+      );
+    } finally {
+      setResettingPasswordUserId(null);
+    }
+  }, [passwordResetConfirm, showToast]);
 
   const handleDelete = useCallback(async () => {
     if (!deleteConfirm) return;
@@ -169,6 +192,16 @@ export function SettingsPage({ settings, nodes, onUpdateSettings, t, onReset }: 
                           </div>
                         )}
                       </div>
+                      <button
+                        type="button"
+                        onClick={() => setPasswordResetConfirm(u)}
+                        disabled={resettingPasswordUserId === u.id}
+                        className="p-1.5 text-slate-400 hover:text-violet-700 hover:bg-violet-50 rounded transition-colors disabled:opacity-50 disabled:pointer-events-none"
+                        title={`Send password reset email to ${u.email}`}
+                        aria-label={`Send password reset email to ${u.email}`}
+                      >
+                        <KeyRound className="h-3.5 w-3.5" />
+                      </button>
                       {u.id === user?.id ? (
                         <span className="text-[11px] px-2 py-1 rounded-md bg-violet-100 text-violet-700 font-semibold flex-shrink-0">
                           {u.role} (you)
@@ -199,6 +232,9 @@ export function SettingsPage({ settings, nodes, onUpdateSettings, t, onReset }: 
             </CardContent>
           </Card>
         )}
+
+        {/* Audit Log — admin only */}
+        {isAdmin && <AuditLogViewer />}
 
         {/* Church info */}
         <Card>
@@ -299,6 +335,28 @@ export function SettingsPage({ settings, nodes, onUpdateSettings, t, onReset }: 
               >
                 {t.resetConfirm}
               </Button>
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialogRoot>
+
+      {/* Password reset email confirm dialog */}
+      <AlertDialogRoot
+        open={!!passwordResetConfirm}
+        onOpenChange={open => { if (!open) setPasswordResetConfirm(null); }}
+      >
+        <AlertDialogContent>
+          <AlertDialogTitle>Reset Password</AlertDialogTitle>
+          <AlertDialogDescription>
+            Send a password reset email to <strong>{passwordResetConfirm?.email}</strong>?
+            {' '}The user will choose their new password from the secure link in the email.
+          </AlertDialogDescription>
+          <AlertDialogFooter>
+            <AlertDialogCancel asChild>
+              <Button variant="outline" size="sm">Cancel</Button>
+            </AlertDialogCancel>
+            <AlertDialogAction asChild>
+              <Button size="sm" onClick={handlePasswordReset}>Send reset email</Button>
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

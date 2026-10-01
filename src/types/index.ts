@@ -27,6 +27,18 @@ export interface AppSettings {
   language: 'en' | 'fr';
 }
 
+export interface AuditLogEntry {
+  id: string;
+  nodeId: string;
+  operation: 'INSERT' | 'UPDATE' | 'DELETE';
+  userId: string | null;
+  userEmail: string | null;
+  changedAt: string;
+  oldValues: Partial<OrgNode> | null;
+  newValues: Partial<OrgNode> | null;
+  changeSummary: string;
+}
+
 export type CardDisplayMode = 'name' | 'title' | 'both';
 export type ActivePage = 'org-chart' | 'export' | 'settings';
 export type ZoomLevel = 50 | 75 | 100 | 125 | 150;

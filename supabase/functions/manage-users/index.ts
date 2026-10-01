@@ -62,6 +62,9 @@ Deno.serve(async (req) => {
       case 'invite':
         result = await inviteUser(params.email, params.role)
         break
+      case 'resetPassword':
+        result = await sendPasswordResetEmail(params.userId)
+        break
       case 'delete':
         result = await deleteUser(params.userId, caller.id)
         break
@@ -77,7 +80,8 @@ Deno.serve(async (req) => {
     })
 
   } catch (error) {
-    return new Response(JSON.stringify({ error: error.message }), {
+    const message = error instanceof Error ? error.message : 'Unexpected error'
+    return new Response(JSON.stringify({ error: message }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' }
     })
@@ -122,6 +126,29 @@ async function inviteUser(email: string, role: 'admin' | 'viewer' = 'viewer') {
     success: true,
     user: { id: data.user.id, email, role },
   }
+}
+
+async function sendPasswordResetEmail(userId: string) {
+  if (!userId) {
+    throw new Error('User ID is required')
+  }
+
+  // Resolve the email server-side so an admin cannot use this endpoint to send
+  // recovery messages to arbitrary addresses.
+  const { data, error: userError } = await supabaseAdmin.auth.admin.getUserById(userId)
+  if (userError) throw userError
+
+  const email = data.user?.email
+  if (!email) {
+    throw new Error('User does not have an email address')
+  }
+
+  // Supabase uses the project's configured Site URL for the recovery redirect.
+  // The app already handles the resulting PASSWORD_RECOVERY session.
+  const { error } = await supabaseAdmin.auth.resetPasswordForEmail(email)
+  if (error) throw error
+
+  return { success: true }
 }
 
 async function deleteUser(userId: string, callerId: string) {
